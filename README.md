@@ -73,6 +73,14 @@ Current files:
 - `IMPLEMENTATION_PLAN.md` - detailed architecture and build plan.
 - `DUTY_SPLIT.md` - four-person team ownership and timeline.
 
+## How To Use These Docs
+
+Use `README.md` for the short project story and judging angle.
+
+Use `IMPLEMENTATION_PLAN.md` when deciding what to build, how the runtime should work, and what the frontend/backend contract should return.
+
+Use `DUTY_SPLIT.md` during the hackathon to keep the team from overlapping work or arguing about ownership.
+
 Important current code anchors:
 
 - `generateChatResult` - current mock engine.
@@ -116,4 +124,3 @@ Expected result:
 - Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
 - Agents SDK: https://platform.openai.com/docs/guides/agents-sdk
 - Realtime API: https://platform.openai.com/docs/guides/realtime/overview
-
