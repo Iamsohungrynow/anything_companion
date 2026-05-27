@@ -477,7 +477,26 @@ Fallback rules:
 - upload failure -> default image
 - network/CDN risk -> pre-open the app before judging
 
-## 14. Demo Script
+## 14. Build Exit Criteria
+
+The build is ready for rehearsal when this path works without manual explanation:
+
+```text
+home -> scan/setup -> runtime -> timer/check-in -> memory -> display mode
+```
+
+Minimum acceptance checks:
+
+- selected tone and use case appear in the generated companion setup
+- runtime detects a stuck or low-motivation study input
+- Encourage Mode produces a visible micro-task plan
+- Start Sprint begins a countdown or clear active sprint state
+- check-in choices update the session state
+- memory page shows a useful remembered preference or recent goal
+- display mode shows the companion, current mode, reply, and next step
+- mock fallback still works when OpenAI is unavailable
+
+## 15. Demo Script
 
 Opening:
 
@@ -527,7 +546,7 @@ Closing:
 
 > The current demo is study-first, but the same orchestration layer supports work sessions, routines, pet companionship, and desktop display mode.
 
-## 15. Known-Good Demo Inputs
+## 16. Known-Good Demo Inputs
 
 ```text
 I have a finance quiz but I am tired and stuck.
@@ -551,4 +570,3 @@ Avoid:
 - long emotional confessions
 - requests unrelated to study/work/routine
 - anything requiring real external tools
-
