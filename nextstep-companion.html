@@ -160,9 +160,77 @@ function generateChatResult(scenario, msg) {
   return PET_RESULT;
 }
 
-async function generateChatResultAsync(scenario, msg) {
-  await new Promise(r => setTimeout(r, 900));
-  return generateChatResult(scenario, msg);
+function normalizeRuntimeTone(companion) {
+  const tone = `${companion?.tone || ''} ${companion?.interaction_style || ''}`.toLowerCase();
+  if (tone.includes('short') || tone.includes('direct')) return 'short_direct';
+  if (tone.includes('coach')) return 'coach_like';
+  if (tone.includes('friend')) return 'friend_like';
+  if (tone.includes('cute') || tone.includes('playful')) return 'cute_playful';
+  return 'soft_supportive';
+}
+
+function normalizeRuntimeUseCase(scenario, companion) {
+  const useCase = `${companion?.use_case || ''} ${companion?.type || ''}`.toLowerCase();
+  if (useCase.includes('work')) return 'work';
+  if (useCase.includes('emotional') || useCase.includes('support')) return 'light_support';
+  if (useCase.includes('pet') || useCase.includes('companionship')) return 'pet_companionship';
+  if (useCase.includes('routine') || useCase.includes('reminder') || useCase.includes('check-in')) return 'routine';
+  return scenario === 'pet' ? 'pet_companionship' : scenario === 'acg' ? 'light_support' : 'study';
+}
+
+function buildRuntimeCompanionPayload(companion) {
+  if (!companion) return undefined;
+  return {
+    name: companion.name,
+    type: companion.type,
+    scenario: companion.scenario,
+    emoji: companion.emoji,
+    personality: companion.personality,
+    tone: companion.tone,
+    use_case: companion.use_case,
+    backstory: companion.backstory,
+    interaction_style: companion.interaction_style,
+  };
+}
+
+async function generateChatResultAsync(scenario, msg, companion) {
+  const localFallback = async () => {
+    await new Promise(r => setTimeout(r, 900));
+    return generateChatResult(scenario, msg);
+  };
+
+  if (window.location.protocol === 'file:') return localFallback();
+
+  try {
+    if (window.__NEXTSTEP_RUNTIME_SCENARIO !== scenario) {
+      window.__NEXTSTEP_RUNTIME_SESSION_ID = null;
+      window.__NEXTSTEP_RUNTIME_SCENARIO = scenario;
+    }
+
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: window.__NEXTSTEP_RUNTIME_SESSION_ID || undefined,
+        scenario,
+        message: msg,
+        channel: 'text',
+        tone: normalizeRuntimeTone(companion),
+        use_case: normalizeRuntimeUseCase(scenario, companion),
+        companion: buildRuntimeCompanionPayload(companion),
+      }),
+    });
+    if (!response.ok) throw new Error(`Runtime API failed: ${response.status}`);
+    const result = await response.json();
+    if (result.session_id) window.__NEXTSTEP_RUNTIME_SESSION_ID = result.session_id;
+    if (!Array.isArray(result.micro_task) && Array.isArray(result.micro_task_plan)) {
+      result.micro_task = result.micro_task_plan.map(task => task.label);
+    }
+    return result;
+  } catch (err) {
+    console.warn('[Runtime API] Falling back to local mock engine:', err);
+    return localFallback();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -170,6 +238,12 @@ async function generateChatResultAsync(scenario, msg) {
 // Voice is locked once per browser tab. All speakText() calls reuse
 // the same _sessionVoice — prevents voice changing between messages.
 // ═══════════════════════════════════════════════════════════════════
+
+function resetRuntimeSession() {
+  if (typeof window === 'undefined') return;
+  window.__NEXTSTEP_RUNTIME_SESSION_ID = null;
+  window.__NEXTSTEP_RUNTIME_SCENARIO = null;
+}
 
 const PREFERRED_VOICE_NAMES = [
   'Microsoft Jenny','Microsoft Aria','Samantha',
@@ -981,7 +1055,7 @@ function ChatInterface({ companion, scenario, messages, onAddMessage, onChatResu
     if (!text.trim()) return;
     onAddMessage({ id:`u-${Date.now()}`, role:'user', content:text.trim(), timestamp:new Date() });
     setInputText(''); setIsTyping(true);
-    const result = await generateChatResultAsync(scenario, text.trim());
+    const result = await generateChatResultAsync(scenario, text.trim(), companion);
     setIsTyping(false);
     onAddMessage({ id:`c-${Date.now()}`, role:'companion', content:result.reply, timestamp:new Date() });
     onChatResult(result);
@@ -1219,7 +1293,7 @@ function VideoCompanionMode({ companion, scenario, messages, onAddMessage, onCha
     showSub(`You: ${text}`, 2000);
     onAddMessage({ id:`u-${Date.now()}`, role:'user', content:text.trim(), timestamp:new Date() });
     await new Promise(r => setTimeout(r, 700));
-    const result = await generateChatResultAsync(scenario, text.trim());
+    const result = await generateChatResultAsync(scenario, text.trim(), companion);
     onAddMessage({ id:`c-${Date.now()}`, role:'companion', content:result.reply, timestamp:new Date() });
     onChatResult(result);
     processingRef.current = false;
@@ -1532,6 +1606,7 @@ function App() {
   const handleScenarioSelect = s => { setScenario(s); setStep('upload'); };
 
   const handleGenerate = async (imageUrl) => {
+    resetRuntimeSession();
     setImage(imageUrl);
     const c = { ...COMPANIONS[scenario], imageUrl };
     setCompanion(c);
@@ -1554,6 +1629,7 @@ function App() {
   }, [messages, companion]);
 
   const handleHome = useCallback(() => {
+    resetRuntimeSession();
     setScenario(null); setImage(null); setCompanion(null);
     setMessages([]); setLastResult(null); setMemory(null);
     setStep('scenario');
