@@ -1,0 +1,16 @@
+{
+  "name": "nextstep-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test:api": "node server/smoke-test.js",
+    "test:mart": "node server/mart-contract-test.js",
+    "test:openai": "node server/live-openai-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
