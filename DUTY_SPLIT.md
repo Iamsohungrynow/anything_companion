@@ -9,7 +9,7 @@ The project is frontend/demo-heavy. The split should keep product flow and integ
 Ownership map:
 
 - Person A owns the largest slice: product direction, main flow, integration, and pitch.
-- Person B owns a major critical slice: the backend/API runtime boundary.
+- Mart owns a major critical slice: the backend/API runtime boundary.
 - Person C owns a major implementation slice: interaction system and adaptive UX.
 - Person D owns a major delivery slice: rapid build support, QA, fallback, and deployment reliability.
 
@@ -72,9 +72,9 @@ Deliverables:
 Rules:
 
 - Person A is the only person changing root step names or the main demo path.
-- Person A coordinates backend and interaction boundaries, but backend internals stay with Person B.
+- Person A coordinates backend and interaction boundaries, but backend internals stay with Mart.
 
-## Person B - Backend Runtime + Reliability
+## Mart - Backend Runtime + Reliability
 
 This role owns a major critical system boundary: the backend/API engine.
 
@@ -88,12 +88,12 @@ Owns:
 
 Primary modules:
 
-- `server/index.ts`
-- `server/schemas.ts`
-- `server/runtime/orchestrator.ts`
-- `server/openai/client.ts`
-- `server/store/sessionStore.ts`
-- `server/fallback/mockEngine.ts`
+- `server/index.js`
+- `server/schemas.js`
+- `server/runtime/orchestrator.js`
+- `server/openai/client.js`
+- `server/store/sessionStore.js`
+- `server/fallback/mockEngine.js`
 
 Concrete tasks:
 
@@ -114,9 +114,13 @@ Deliverables:
 
 Rules:
 
-- Person B keeps the response contract stable.
-- Person B coordinates API changes with Person A and Person C before the frontend depends on them.
+- Mart keeps the response contract stable.
+- Mart coordinates API changes with Person A and Person C before the frontend depends on them.
 - UI layout, voice, Live2D, animation, page transitions, and visual assets stay with the frontend/QA owners.
+
+Verification:
+
+- Backend/API scope verified by Mart with `npm run test:mart`.
 
 Backend contract:
 
@@ -206,7 +210,7 @@ Deliverables:
 
 Rules:
 
-- All AI text must come through Person B's engine boundary.
+- All AI text must come through Mart's engine boundary.
 - Person C does not own memory persistence.
 - Person C calls `onChatResult(result)` and lets Person A's app state handle memory.
 
@@ -270,7 +274,7 @@ Person A:
 - confirm page ownership and integration order
 - define what gets cut if time is tight
 
-Person B:
+Mart:
 
 - freeze `RuntimeResponse` schema
 - confirm mock fallback
@@ -293,7 +297,7 @@ Person A:
 - root route transitions
 - memory story shape
 
-Person B:
+Mart:
 
 - backend skeleton and `/api/chat`
 - fallback engine
@@ -327,7 +331,7 @@ Person A:
 - integration pass across runtime, memory, and display
 - final demo path lock
 
-Person B:
+Mart:
 
 - OpenAI adapter if feasible
 - schema validation
@@ -387,7 +391,7 @@ Do not make last-minute feature changes.
 ## Integration Rules
 
 - Person A controls root flow and demo path.
-- Person B controls API contract.
+- Mart controls API contract.
 - Person C controls runtime interaction state.
 - Person D controls fallback and QA.
 - If the API fails, use mock data.
@@ -404,7 +408,7 @@ Person A:
 - controls primary click path
 - explains why the product is not a normal chatbot
 
-Person B:
+Mart:
 
 - explains backend in one sentence:
 
