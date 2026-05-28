@@ -300,29 +300,26 @@ Memory update queued: user starts better with short tasks
 
 ## 6. Backend File Structure
 
-Recommended structure if adding a backend:
+Implemented backend structure:
 
 ```text
 server/
-  index.ts
-  schemas.ts
+  index.js
+  config.js
+  env.js
+  data.js
+  schemas.js
   openai/
-    client.ts
+    client.js
   runtime/
-    orchestrator.ts
-    prompts.ts
-    skills/
-      personaSkill.ts
-      stateDetectorSkill.ts
-      modeRouterSkill.ts
-      actionPlannerSkill.ts
-      companionReplySkill.ts
-      memoryWriterSkill.ts
+    orchestrator.js
   fallback/
-    mockEngine.ts
+    mockEngine.js
   store/
-    sessionStore.ts
+    sessionStore.js
 ```
+
+The orchestration layer is currently modular inside `server/runtime/orchestrator.js`, with the subagent-style skills represented by deterministic sections in the prompt/fallback flow rather than separate files.
 
 ## 7. API Endpoints
 
@@ -425,7 +422,7 @@ Phase 1:
 Phase 2:
 
 - add `server/`
-- move mock logic into `server/fallback/mockEngine.ts`
+- move mock logic into `server/fallback/mockEngine.js`
 - make `generateChatResultAsync` call `/api/chat`
 
 Phase 3:
@@ -495,6 +492,10 @@ Minimum acceptance checks:
 - memory page shows a useful remembered preference or recent goal
 - display mode shows the companion, current mode, reply, and next step
 - mock fallback still works when OpenAI is unavailable
+
+Verification:
+
+- Backend/API runtime scope is verified by Mart with `npm run test:mart`.
 
 ## 15. Demo Script
 
