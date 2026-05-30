@@ -202,11 +202,20 @@ function serveStatic(urlPath, method, res) {
     return;
   }
 
+  if (urlPath.startsWith("/assets/")) {
+    serveSafeStatic(ROOT_DIR, "assets", urlPath, res, isHead);
+    return;
+  }
+
   if (!urlPath.startsWith("/models/")) {
     sendJson(res, 404, { ok: false, error: "Not found." });
     return;
   }
 
+  serveSafeStatic(ROOT_DIR, "models", urlPath, res, isHead);
+}
+
+function serveSafeStatic(rootDir, publicPrefix, urlPath, res, isHead) {
   let decodedPath;
   try {
     decodedPath = decodeURIComponent(urlPath);
@@ -215,10 +224,10 @@ function serveStatic(urlPath, method, res) {
     return;
   }
 
-  const modelsRoot = path.resolve(ROOT_DIR, "models");
-  const modelPath = decodedPath.replace(/^\/models[\\/]/, "");
-  const fullPath = path.resolve(modelsRoot, modelPath);
-  const relative = path.relative(modelsRoot, fullPath);
+  const staticRoot = path.resolve(rootDir, publicPrefix);
+  const staticPath = decodedPath.replace(new RegExp(`^/${publicPrefix}[\\\\/]`), "");
+  const fullPath = path.resolve(staticRoot, staticPath);
+  const relative = path.relative(staticRoot, fullPath);
   if (relative.startsWith("..") || path.isAbsolute(relative) || !fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
     sendJson(res, 404, { ok: false, error: "Not found." });
     return;
@@ -242,6 +251,9 @@ function contentType(filePath) {
   if (ext === ".json") return "application/json; charset=utf-8";
   if (ext === ".css") return "text/css; charset=utf-8";
   if (ext === ".html") return "text/html; charset=utf-8";
+  if (ext === ".mp4" || ext === ".m4v") return "video/mp4";
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mov") return "video/quicktime";
   if (ext === ".png") return "image/png";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".svg") return "image/svg+xml";
