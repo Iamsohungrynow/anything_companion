@@ -1,3 +1,4 @@
+/// <reference path="./react-shim.d.ts" />
 // ============================================================
 // PAGE 4: CHAT INTERFACE
 // ============================================================
@@ -6,13 +7,13 @@
 // AI replies:   src/utils/generateChatResult.ts
 // ============================================================
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { CompanionCard, ChatMessage, ChatResult, Scenario } from '../types';
-import { generateChatResultAsync } from '../utils/generateChatResult';
+import { CompanionCard, ChatMessage, ChatResult, Scenario } from './index';
+import { generateChatResultAsync } from './generateChatResult';
 import {
   speakText, stopSpeaking, isSpeechSynthesisSupported, getLockedVoiceName,
-} from '../utils/voiceOutput';
-import { useVoiceInput } from '../hooks/useVoiceInput';
-import Pseudo3DPreview from './Pseudo3DPreview';
+} from './utils/voiceOutput';
+import { useVoiceInput } from './hooks/useVoiceInput';
+import Pseudo3DPreview from './components/Pseudo3DPreview';
 
 interface Props {
   companion:    CompanionCard;
@@ -44,9 +45,80 @@ const defaultModeStyle = { bg:'bg-gray-50 border-gray-200', text:'text-gray-600'
 
 const scenarioDefault: Record<Scenario, { detected_state: string; mode: string }> = {
   study: { detected_state:'Awaiting input…',    mode:'Check-in Mode'          },
-  acg:   { detected_state:'Listening quietly…', mode:'Companion Presence Mode' },
-  pet:   { detected_state:'Watching over you…', mode:'Routine Check-in Mode'  },
+  acg:   { detected_state:'Listening quietly…', mode:'Companion Mode' },
+  pet:   { detected_state:'Watching over you…', mode:'Routine Mode'  },
 };
+
+function getSprintDurationMinutes(result: ChatResult): number {
+  const labelMatch = result.start_button_label.match(/(\d+)\s*-\s*min|(\d+)\s*min/i);
+  const labelMinutes = Number(labelMatch?.[1] ?? labelMatch?.[2]);
+  if (Number.isFinite(labelMinutes) && labelMinutes > 0) return labelMinutes;
+
+  const taskTotal = result.micro_task_plan.reduce((sum, task) => sum + Math.max(0, task.duration_minutes), 0);
+  return taskTotal > 0 ? taskTotal : 10;
+}
+
+// ── Companion State Reactions Mapping ────────────────────────────────────────
+const companionStateReactions: Record<string, { emoji: string; label: string; description: string; bgColor: string }> = {
+  'idle':        { emoji: '😊', label: 'Idle',        description: 'Waiting for you',       bgColor: 'bg-gray-50' },
+  'happy':       { emoji: '😄', label: 'Happy',       description: 'Excited to help',      bgColor: 'bg-amber-50' },
+  'thinking':    { emoji: '🤔', label: 'Thinking',    description: 'Analyzing…',           bgColor: 'bg-blue-50' },
+  'encouraging': { emoji: '💪', label: 'Encouraging', description: 'Rooting for you',     bgColor: 'bg-green-50' },
+  'focused':     { emoji: '🎯', label: 'Focused',     description: 'In the zone',         bgColor: 'bg-indigo-50' },
+  'resting':     { emoji: '😌', label: 'Resting',     description: 'Taking a moment',     bgColor: 'bg-violet-50' },
+  'concerned':   { emoji: '😟', label: 'Concerned',   description: 'Checking on you',     bgColor: 'bg-rose-50' },
+};
+
+// ── Countdown Timer Component ────────────────────────────────────────────────
+function CountdownTimer({ durationMinutes, onComplete }: { durationMinutes: number; onComplete: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState(durationMinutes * 60);
+  const [isRunning, setIsRunning] = useState(true);
+
+  useEffect(() => {
+    if (!isRunning || secondsLeft <= 0) return;
+    const interval = setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) { onComplete(); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning, secondsLeft, onComplete]);
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+
+  return (
+    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 text-center">
+      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">⏱️ Sprint Timer</p>
+      <div className="text-5xl font-black text-indigo-600 font-mono mb-3">
+        {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+      </div>
+      <div className="w-full bg-indigo-200 rounded-full h-2 overflow-hidden">
+        <div className="bg-indigo-600 h-full transition-all" style={{ width: `${(secondsLeft / (durationMinutes * 60)) * 100}%` }}/>
+      </div>
+      <button onClick={() => setIsRunning(!isRunning)} className="mt-3 text-xs font-bold text-indigo-600 hover:text-indigo-700">
+        {isRunning ? '⏸ Pause' : '▶ Resume'}
+      </button>
+    </div>
+  );
+}
+
+// ── Companion State Indicator ───────────────────────────────────────────────
+function CompanionStateIndicator({ state }: { state: string }) {
+  const info = companionStateReactions[state.toLowerCase()] ?? companionStateReactions['idle'];
+  return (
+    <div className={`rounded-2xl border border-opacity-30 p-3 ${info.bgColor}`}>
+      <div className="flex items-center gap-2 justify-center">
+        <span className="text-2xl">{info.emoji}</span>
+        <div className="text-left">
+          <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">{info.label}</p>
+          <p className="text-xs text-gray-500">{info.description}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Right-side structured task panel ───────────────────────────────────────
 function TaskSupportPanel({
@@ -55,7 +127,15 @@ function TaskSupportPanel({
   const [checked,      setChecked]      = useState<Record<number, boolean>>({});
   const [sprintActive, setSprintActive] = useState(false);
   const [checkInDone,  setCheckInDone]  = useState<string | null>(null);
+  const [timerComplete, setTimerComplete] = useState(false);
   const toggle = (i: number) => setChecked(p => ({ ...p, [i]: !p[i] }));
+
+  useEffect(() => {
+    setChecked({});
+    setSprintActive(false);
+    setCheckInDone(null);
+    setTimerComplete(false);
+  }, [result?.reply]);
 
   const def = scenarioDefault[scenario];
   const data: ChatResult = result ?? {
@@ -76,11 +156,17 @@ function TaskSupportPanel({
   const ms = modeColors[data.mode] ?? defaultModeStyle;
   const tasks = data.micro_task_plan ?? [];
   const doneCount = Object.values(checked).filter(Boolean).length;
+  const sprintMinutes = getSprintDurationMinutes(data);
 
   return (
     <div className="space-y-3">
 
-      {/* 1 – Adaptive Mode Panel */}
+      {/* 1 – Companion State Indicator */}
+      {data.companion_state && !isTyping && (
+        <CompanionStateIndicator state={data.companion_state} />
+      )}
+
+      {/* 1b – Adaptive Mode Panel */}
       <div className={`rounded-2xl border ${ms.bg} p-4 shadow-sm`}>
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
           <span>⚡</span> Adaptive Mode Panel
@@ -113,7 +199,7 @@ function TaskSupportPanel({
         </div>
       )}
 
-      {/* 2 – Micro-Task Support */}
+      {/* 2 – Micro-Task Support + Sprint */}
       {tasks.length > 0 && (
         <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1">
@@ -145,18 +231,33 @@ function TaskSupportPanel({
             ))}
           </div>
 
-          {/* Sprint button */}
+          {/* Sprint button & timer */}
           {!sprintActive ? (
             <button
               onClick={() => setSprintActive(true)}
-              className="mt-3 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold text-sm shadow transition-all hover:shadow-md"
+              className="mt-3 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-bold text-sm shadow transition-all hover:shadow-md active:scale-95"
             >
               ▶ {data.start_button_label || 'Start Session'}
             </button>
-          ) : (
-            <div className="mt-3 w-full py-2.5 rounded-xl bg-green-50 border border-green-200 text-center">
-              <span className="text-green-700 font-bold text-sm">✓ Sprint started — you've got this!</span>
+          ) : timerComplete ? (
+            <div className="mt-3 w-full py-3 rounded-xl bg-green-50 border-2 border-green-200 text-center">
+              <p className="text-green-700 font-bold text-sm">✓ Time's up! Great work!</p>
+              <button onClick={() => { setSprintActive(false); setTimerComplete(false); }}
+                className="mt-2 text-xs text-green-600 hover:text-green-700 font-semibold">
+                ← Start another sprint
+              </button>
             </div>
+          ) : (
+            <>
+              <CountdownTimer 
+                durationMinutes={sprintMinutes}
+                onComplete={() => setTimerComplete(true)}
+              />
+              <button onClick={() => setSprintActive(false)}
+                className="mt-3 w-full py-2 rounded-xl text-gray-600 font-semibold text-sm border border-gray-200 hover:bg-gray-50 transition-colors">
+                ⏹ Stop Sprint
+              </button>
+            </>
           )}
         </div>
       )}
@@ -199,7 +300,7 @@ function TaskSupportPanel({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: any }) {
   return (
     <div className="flex items-start gap-2">
       <span className="text-[10px] text-gray-400 font-semibold w-24 flex-shrink-0 pt-0.5 uppercase tracking-wide">{label}</span>
@@ -256,66 +357,96 @@ export default function ChatInterface({
     else { speakText(text, scenario, () => setSpeakingId(null)); setSpeakingId(msgId); }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* ── Chat column ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 py-6">
+  // Derive companion reaction based on latest result
+  const companionState = lastResult?.companion_state ?? 'idle';
+  const modeStyle = modeColors[lastResult?.mode ?? 'Awaiting input'] ?? defaultModeStyle;
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-5 bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-white/50">
-          <div className="flex-shrink-0"><Pseudo3DPreview companion={companion} size="sm" /></div>
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-white via-gray-50 to-white">
+      {/* ── Chat column ─────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 py-6 overflow-hidden">
+
+        {/* Header with companion reaction */}
+        <div className="flex items-center gap-3 mb-5 bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-white/50 flex-shrink-0">
+          <div className="flex-shrink-0 relative">
+            <Pseudo3DPreview companion={companion} size="sm" />
+            {/* State indicator dot */}
+            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white shadow-md flex items-center justify-center text-sm ${companionStateReactions[companionState.toLowerCase()]?.bgColor ?? 'bg-gray-100'}`}>
+              {companionStateReactions[companionState.toLowerCase()]?.emoji ?? '😊'}
+            </div>
+          </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-black text-gray-800 truncate">{companion.name}</h2>
             <p className="text-xs text-gray-500 truncate">{companion.type}</p>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"/>
               <span className="text-xs text-green-600 font-semibold">Online</span>
-              {lastResult && <><span className="text-gray-300 mx-1">·</span><span className="text-xs text-gray-500">{lastResult.mode}</span></>}
+              {lastResult && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${modeStyle.text}`}>
+                    {lastResult.mode}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
           {/* Video Mode button */}
           {onVideoMode && (
             <button onClick={onVideoMode}
-              className={`flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm
+              className={`flex-shrink-0 text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-sm active:scale-95
                 ${scenario==='acg'
                   ?'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-md'
                   :'text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
               title="Switch to Video Companion Mode">
-              🎬 Video Mode
+              🎬 Video
             </button>
           )}
 
           <button onClick={onViewMemory}
-            className="flex-shrink-0 text-xs font-bold text-gray-400 hover:text-gray-600 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-50">
-            Memory →
+            className="flex-shrink-0 text-xs font-bold text-gray-400 hover:text-gray-600 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-50 active:bg-gray-100">
+            💾
           </button>
         </div>
 
-        {/* Messages */}
+        {/* Messages with mode indicators */}
         <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-[320px] max-h-[440px] pr-1">
-          {messages.map(msg => (
-            <div key={msg.id} className={`flex ${msg.role==='user'?'justify-end':'justify-start'} animate-fade-in`}>
-              {msg.role==='companion' && (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1 text-sm select-none">
-                  {companion.emoji}
-                </div>
-              )}
-              <div className={`max-w-[80%] flex flex-col gap-1 ${msg.role==='user'?'items-end':'items-start'}`}>
-                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
-                  ${msg.role==='user'?'bg-gray-800 text-white rounded-tr-sm':`${colors.bubble} border text-gray-800 rounded-tl-sm`}`}>
-                  {msg.content}
-                </div>
-                {msg.role==='companion' && ttsSupported && (
-                  <button onClick={() => handleSpeak(msg.id, msg.content)}
-                    className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors
-                      ${speakingId===msg.id?'bg-gray-200 text-gray-600 font-bold':'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}>
-                    {speakingId===msg.id?'⏹ Stop':'🔊 Play'}
-                  </button>
+          {messages.map((msg, idx) => {
+            // Show mode change indicator before companion messages when mode changes
+            const shouldShowModeChange = msg.role === 'companion' && lastResult && idx > 0;
+            return (
+              <React.Fragment key={msg.id}>
+                {shouldShowModeChange && messages[idx - 1]?.role === 'user' && lastResult?.mode && (
+                  <div className={`text-center py-2 px-3 rounded-2xl mx-auto text-xs font-bold 
+                    ${modeColors[lastResult.mode]?.bg ?? 'bg-gray-50'} 
+                    ${modeColors[lastResult.mode]?.text ?? 'text-gray-600'}`}>
+                    🔄 Mode Changed: {lastResult.mode}
+                  </div>
                 )}
-              </div>
-            </div>
-          ))}
+                <div className={`flex ${msg.role==='user'?'justify-end':'justify-start'} animate-fade-in`}>
+                  {msg.role==='companion' && (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1 text-sm select-none">
+                      {companion.emoji}
+                    </div>
+                  )}
+                  <div className={`max-w-[80%] flex flex-col gap-1 ${msg.role==='user'?'items-end':'items-start'}`}>
+                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
+                      ${msg.role==='user'?'bg-gray-800 text-white rounded-tr-sm':`${colors.bubble} border text-gray-800 rounded-tl-sm`}`}>
+                      {msg.content}
+                    </div>
+                    {msg.role==='companion' && ttsSupported && (
+                      <button onClick={() => handleSpeak(msg.id, msg.content)}
+                        className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors
+                          ${speakingId===msg.id?'bg-gray-200 text-gray-600 font-bold':'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}>
+                        {speakingId===msg.id?'⏹ Stop':'🔊 Play'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          })}
           {isTyping && (
             <div className="flex justify-start animate-fade-in">
               <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1 text-sm">{companion.emoji}</div>
@@ -329,40 +460,47 @@ export default function ChatInterface({
           <div ref={messagesEndRef}/>
         </div>
 
+        {/* Error & interim display */}
         {voiceError && (
-          <div className="mb-3 bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-xs text-red-600 flex items-center gap-2">
-            <span>⚠️</span>{voiceError}
+          <div className="mb-3 bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-xs text-red-600 flex items-center gap-2 animate-pulse">
+            <span>⚠️</span>
+            <span>{voiceError}</span>
+            <button onClick={() => {}} className="ml-auto text-red-500 hover:text-red-700 font-bold">✕</button>
           </div>
         )}
         {interimTranscript && (
-          <div className="mb-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-600 italic flex items-center gap-2">
-            <span className="animate-pulse">🎤</span>{interimTranscript}…
+          <div className="mb-2 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs text-blue-700 italic flex items-center gap-2">
+            <span className="animate-pulse">🎤</span>
+            <span className="flex-1">{interimTranscript}…</span>
           </div>
         )}
 
-        {/* Input area */}
-        <div className="flex gap-2 items-end">
+        {/* Input area with improved stability */}
+        <div className="flex gap-2 items-end flex-shrink-0">
           {voiceSupported ? (
             <button onClick={isListening?stopListening:startListening}
-              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all shadow-sm
-                ${isListening?'bg-red-500 hover:bg-red-600 text-white animate-pulse':'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-              title={isListening?'Stop recording':'Voice input'}>
+              disabled={isTyping}
+              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed
+                ${isListening?'bg-red-500 hover:bg-red-600 text-white animate-pulse':'bg-white border-2 border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+              title={isTyping ? 'Wait for response' : isListening?'Stop recording':'Start voice input'}>
               {isListening?'⏹':'🎤'}
             </button>
           ) : (
-            <button disabled className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200">
+            <button disabled className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-gray-200" title="Voice input not available">
               🎤
             </button>
           )}
 
-          <textarea value={inputText} onChange={e=>setInputText(e.target.value)}
-            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(inputText);}}}
+          <textarea value={inputText} onChange={(e: { target: { value: string } })=>setInputText(e.target.value)}
+            onKeyDown={(e: { key: string; shiftKey: boolean; preventDefault: () => void })=>{if(e.key==='Enter'&&!e.shiftKey&&!isTyping){e.preventDefault();sendMessage(inputText);}}}
             placeholder={`Message ${companion.name}…`} rows={2}
-            className={`flex-1 resize-none bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 ${colors.input} transition-all`}/>
+            disabled={isTyping}
+            className={`flex-1 resize-none bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 ${colors.input} transition-all disabled:opacity-50 disabled:cursor-not-allowed`}/>
 
           <button onClick={()=>sendMessage(inputText)} disabled={!inputText.trim()||isTyping}
-            className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md transition-all
-              ${inputText.trim()&&!isTyping?`${colors.btn} hover:shadow-lg`:'bg-gray-200 cursor-not-allowed'}`}>
+            className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md transition-all active:scale-95
+              ${inputText.trim()&&!isTyping?`${colors.btn} hover:shadow-lg`:'bg-gray-200 cursor-not-allowed'}`}
+            title={isTyping ? 'Waiting for response...' : inputText.trim()?'Send message':'Type a message first'}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
@@ -370,7 +508,11 @@ export default function ChatInterface({
         </div>
 
         {showDbg && (
-          <p className="mt-2 text-[10px] text-gray-400 text-center">Voice locked: {getLockedVoiceName()}</p>
+          <div className="mt-3 text-[10px] text-gray-400 text-center space-y-1 bg-gray-50 p-2 rounded-lg">
+            <p>Voice locked: {getLockedVoiceName()}</p>
+            <p>Messages: {messages.length} | Typing: {isTyping ? 'yes' : 'no'}</p>
+            <p>Companion state: {lastResult?.companion_state || 'idle'}</p>
+          </div>
         )}
         <button onClick={()=>setShowDbg(d=>!d)} className="mt-1 text-[10px] text-gray-300 hover:text-gray-500 text-center w-full transition-colors">
           {showDbg?'Hide debug':'🔍 Debug'}
@@ -378,12 +520,12 @@ export default function ChatInterface({
       </div>
 
       {/* ── Right sidebar ───────────────────────────────────────────────── */}
-      <div className="lg:w-80 xl:w-96 px-4 pb-6 lg:pt-6 flex-shrink-0 space-y-3">
+      <div className="lg:w-80 xl:w-96 px-4 pb-6 lg:pt-6 flex-shrink-0 space-y-3 max-h-[600px] overflow-y-auto lg:overflow-visible">
         <TaskSupportPanel result={lastResult} scenario={scenario} isTyping={isTyping}/>
         {lastResult && (
           <button onClick={onViewMemory}
-            className={`w-full py-3 rounded-2xl text-white font-bold text-sm shadow-lg transition-all ${colors.btn}`}>
-            View Memory & Summary →
+            className={`w-full py-3 rounded-2xl text-white font-bold text-sm shadow-lg transition-all active:scale-95 ${colors.btn}`}>
+            📊 Memory & Summary
           </button>
         )}
       </div>

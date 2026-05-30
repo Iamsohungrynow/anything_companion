@@ -23,16 +23,16 @@ import {
   ChatMessage,
   ChatResult,
   Memory,
-} from './types';
-import { generateCompanionAsync } from './utils/generateCompanion';
+} from './index';
+import { generateCompanionAsync } from './generateCompanion';
 import { initVoiceSession, resetVoiceSession } from './utils/voiceOutput';
-import ScenarioSelector from './components/ScenarioSelector';
-import SetupPage from './components/SetupPage';
-import ImageUpload from './components/ImageUpload';
-import CompanionCardPage from './components/CompanionCard';
-import ChatInterface from './components/ChatInterface';
+import ScenarioSelector from './ScenarioSelector';
+import SetupPage from './SetupPage';
+import ImageUpload from './ImageUpload';
+import CompanionCardPage from './CompanionCard';
+import ChatInterface from './ChatInterface';
 import VideoCompanionMode from './components/VideoCompanionMode';
-import MemoryResult from './components/MemoryResult';
+import MemoryResult from './MemoryResult';
 
 export default function App() {
   // ------ App State -------------------------------------------------------
