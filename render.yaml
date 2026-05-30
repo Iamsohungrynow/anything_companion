@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: nextstep-companion-demo
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: USE_MOCK_AI
+        value: "true"

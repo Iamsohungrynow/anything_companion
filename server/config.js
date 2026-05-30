@@ -8,14 +8,19 @@ const DATA_FILE = path.join(ROOT_DIR, "nextstep-companion-data.json");
 const HTML_FILE = path.join(ROOT_DIR, "nextstep-companion.html");
 
 const PORT = parsePositiveInteger(process.env.PORT, 3000);
-const HOST = process.env.HOST || "127.0.0.1";
+const RENDER_EXTERNAL_HOSTNAME = String(process.env.RENDER_EXTERNAL_HOSTNAME || "").trim().toLowerCase();
+const RENDER_EXTERNAL_URL = String(process.env.RENDER_EXTERNAL_URL || (RENDER_EXTERNAL_HOSTNAME ? `https://${RENDER_EXTERNAL_HOSTNAME}` : ""))
+  .trim()
+  .replace(/\/+$/, "");
+const HOST = process.env.HOST || (RENDER_EXTERNAL_HOSTNAME ? "0.0.0.0" : "127.0.0.1");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const OPENAI_TIMEOUT_MS = parsePositiveInteger(process.env.OPENAI_TIMEOUT_MS, 12000);
 const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "true";
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
 const SESSION_TTL_MS = parsePositiveInteger(process.env.SESSION_TTL_MS, 1000 * 60 * 60 * 8);
-const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS, PORT);
-const ALLOWED_HOSTS = parseList(process.env.ALLOWED_HOSTS, ["127.0.0.1", "localhost", "::1"])
+const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS, PORT, RENDER_EXTERNAL_URL);
+const ALLOWED_HOSTS = parseList(process.env.ALLOWED_HOSTS, ["127.0.0.1", "localhost", "::1", RENDER_EXTERNAL_HOSTNAME])
+  .filter(Boolean)
   .map((host) => host.toLowerCase());
 
 function parsePositiveInteger(value, fallback) {
@@ -24,14 +29,15 @@ function parsePositiveInteger(value, fallback) {
   return parsed;
 }
 
-function parseAllowedOrigins(value, port) {
+function parseAllowedOrigins(value, port, renderExternalUrl) {
   if (value && value.trim()) {
     return parseList(value, []);
   }
   return [
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
-  ];
+    renderExternalUrl,
+  ].filter(Boolean);
 }
 
 function parseList(value, fallback) {

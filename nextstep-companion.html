@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>NextStep Companion</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Live2D via pixi-live2d-display (Cubism4 bundle) -->
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.9/dist/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
   <style>
     body{
       background:linear-gradient(135deg,#0f0c29 0%,#302b63 40%,#24243e 100%);
@@ -272,13 +269,64 @@ function generateChatResult(scenario, msg) {
   };
 }
 
+const FORCE_LOCAL_RUNTIME = new URLSearchParams(window.location.search).get('runtime')==='local';
+
+function normalizeFrontendResult(raw, context={}){
+  const legacy=Array.isArray(raw?.micro_task)?raw.micro_task:[];
+  const plan=Array.isArray(raw?.micro_task_plan)&&raw.micro_task_plan.length
+    ? raw.micro_task_plan
+    : legacy.map((label,index)=>({label,duration_minutes:[2,4,4,3][index]||5,done:false}));
+  const trace=Array.isArray(raw?.trace)&&raw.trace.length?raw.trace:[
+    {step:'state_detector',status:'fallback',summary:`Detected ${raw?.detected_state||'current state'} using local rules.`},
+    {step:'mode_router',status:'fallback',summary:`Selected ${raw?.mode||'Check-in Mode'}.`},
+    {step:'action_planner',status:'fallback',summary:'Generated a small next-step plan locally.'},
+    {step:'memory_writer',status:'fallback',summary:raw?.memory_update||'Prepared a local memory update.'},
+  ];
+  return{
+    ...raw,
+    session_id:raw?.session_id||context.session_id||null,
+    micro_task_plan:plan,
+    micro_task:plan.map(task=>task.label),
+    trace,
+    fallback_used:Boolean(raw?.fallback_used||context.fallback_used),
+  };
+}
+
+function buildLocalRuntimeTurn(payload){
+  return normalizeFrontendResult(generateChatResult(payload.scenario,payload.message),{
+    session_id:payload.session_id,
+    fallback_used:true,
+  });
+}
+
+async function requestRuntimeTurn(payload){
+  if(FORCE_LOCAL_RUNTIME) return buildLocalRuntimeTurn(payload);
+  try{
+    const response=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+    });
+    if(!response.ok) throw new Error(`Runtime request failed (${response.status})`);
+    return normalizeFrontendResult(await response.json(),payload);
+  }catch(error){
+    console.warn('[Runtime] API unavailable, using local fallback:',error.message);
+    return buildLocalRuntimeTurn(payload);
+  }
+}
+
+function getRuntimeTasks(result){
+  if(Array.isArray(result?.micro_task_plan)&&result.micro_task_plan.length) return result.micro_task_plan;
+  return (result?.micro_task||[]).map((label,index)=>({label,duration_minutes:[2,4,4,3][index]||5,done:false}));
+}
+
 /* =================================================================
    VOICE UTILS (voiceOutput)
    ================================================================= */
 const ttsSup = typeof window!=='undefined' && 'speechSynthesis' in window;
 function speakText(text,onEnd){
   try{
-    if(!ttsSup) return;
+    if(!ttsSup){if(onEnd) onEnd();return;}
     window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
     u.rate=0.92; u.pitch=1.08; u.volume=1;
@@ -287,7 +335,7 @@ function speakText(text,onEnd){
     if(pref) u.voice=pref;
     if(onEnd) u.onend=onEnd;
     window.speechSynthesis.speak(u);
-  }catch(e){}
+  }catch(e){if(onEnd) onEnd();}
 }
 function stopSpeaking(){try{if(ttsSup) window.speechSynthesis.cancel();}catch(e){}}
 
@@ -618,12 +666,15 @@ function AdaptiveModePanel({result,scenario,typing}){
 function Row({label,children}){return(<div className="flex items-start gap-2"><span className="text-xs text-white/40 font-semibold w-28 flex-shrink-0 pt-0.5">{label}</span><div className="flex items-center gap-1.5 flex-wrap">{children}</div></div>);}
 
 /* Micro-task Panel */
-function MicroTaskPanel({result}){
+function MicroTaskPanel({result,onCheckIn}){
   const [checked,setChecked]=useState({});
   const [sprint,setSprint]=useState(false);
   const [showCheckIn,setShowCheckIn]=useState(false);
   const [seconds,setSeconds]=useState(getSprintMinutes(result)*60);
   const [checkIn,setCheckIn]=useState(null);
+  const [checkInPending,setCheckInPending]=useState(false);
+  const [checkInError,setCheckInError]=useState(null);
+  const tasks=getRuntimeTasks(result);
   const toggle=i=>setChecked(p=>({...p,[i]:!p[i]}));
   const done=Object.values(checked).filter(Boolean).length;
   const sprintMinutes=getSprintMinutes(result);
@@ -633,6 +684,8 @@ function MicroTaskPanel({result}){
     setShowCheckIn(false);
     setSeconds(getSprintMinutes(result)*60);
     setCheckIn(null);
+    setCheckInPending(false);
+    setCheckInError(null);
   },[result.reply]);
   useEffect(()=>{
     if(!sprint||seconds<=0) return;
@@ -642,11 +695,22 @@ function MicroTaskPanel({result}){
   const mm=String(Math.floor(seconds/60)).padStart(2,'0');
   const ss=String(seconds%60).padStart(2,'0');
   const pct=Math.max(0,Math.min(100,(seconds/(sprintMinutes*60))*100));
+  const submitCheckIn=async option=>{
+    setCheckInPending(true);setCheckInError(null);
+    try{
+      if(onCheckIn) await onCheckIn(option);
+      setCheckIn(option);
+    }catch(error){
+      setCheckInError('Could not sync this check-in. Your text chat still works.');
+    }finally{
+      setCheckInPending(false);
+    }
+  };
   return(
     <div className="rounded-2xl glass p-4 space-y-4">
       <p className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
         <span>🎯</span>Tiny Steps For This Sprint
-        {done>0&&<span className="ml-auto bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold px-2 py-0.5 rounded-full">{done}/{result.micro_task.length}</span>}
+        {done>0&&<span className="ml-auto bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold px-2 py-0.5 rounded-full">{done}/{tasks.length}</span>}
       </p>
       {result.goal_understanding&&(
         <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
@@ -654,13 +718,14 @@ function MicroTaskPanel({result}){
           <p className="text-sm text-amber-100/80 font-medium leading-relaxed">{result.goal_understanding}</p>
         </div>
       )}
-      {result.micro_task.map((t,i)=>(
+      {tasks.map((task,i)=>(
         <button key={i} onClick={()=>toggle(i)}
           className={`w-full flex items-center gap-3 text-left p-2.5 rounded-xl transition-all ${checked[i]?'bg-green-500/15 border border-green-500/30':'bg-white/5 hover:bg-white/10'}`}>
           <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${checked[i]?'bg-green-400 border-green-400':'border-white/30'}`}>
             {checked[i]&&<span className="text-white text-xs font-black">✓</span>}
           </span>
-          <span className={`text-sm font-medium ${checked[i]?'text-green-400 line-through':'text-white/70'}`}>{t}</span>
+          <span className={`text-sm font-medium ${checked[i]?'text-green-400 line-through':'text-white/70'}`}>{task.label}</span>
+          <span className="ml-auto text-[10px] font-bold text-white/30">{task.duration_minutes}m</span>
         </button>
       ))}
       {!sprint?(
@@ -699,13 +764,14 @@ function MicroTaskPanel({result}){
           ):(
             <div className="grid grid-cols-3 gap-2">
               {(result.check_in_options||['Done','Partly done','I got stuck']).map(opt=>(
-                <button key={opt} onClick={()=>setCheckIn(opt)}
+                <button key={opt} onClick={()=>submitCheckIn(opt)} disabled={checkInPending}
                   className="rounded-lg border border-blue-300/20 bg-white/5 px-2 py-2 text-xs font-bold text-blue-100 hover:bg-blue-400/10">
                   {opt}
                 </button>
               ))}
             </div>
           )}
+          {checkInError&&<p className="mt-2 text-xs font-medium text-red-300">{checkInError}</p>}
         </div>
       )}
       {result.memory_update&&(
@@ -713,6 +779,21 @@ function MicroTaskPanel({result}){
           <p className="text-xs font-bold text-violet-300/70 uppercase tracking-widest mb-1">🧠 Memory Updated</p>
           <p className="text-sm text-violet-200/80 font-medium leading-relaxed italic">"{result.memory_update}"</p>
         </div>
+      )}
+      {result.trace?.length>0&&(
+        <details className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <summary className="cursor-pointer text-xs font-bold uppercase tracking-widest text-white/40">Runtime trace</summary>
+          <div className="mt-3 space-y-2">
+            {result.trace.map((item,index)=>(
+              <div key={`${item.step}-${index}`} className="flex items-start gap-2 text-xs">
+                <span className={item.status==='fallback'?'text-amber-300':'text-green-300'}>{item.status==='fallback'?'Fallback':'Done'}</span>
+                <span className="font-bold text-white/60">{item.step}</span>
+                <span className="text-white/40">{item.summary}</span>
+              </div>
+            ))}
+          </div>
+          {result.fallback_used&&<p className="mt-3 text-xs font-bold text-amber-300/80">Local or deterministic fallback is active.</p>}
+        </details>
       )}
     </div>
   );
@@ -917,17 +998,30 @@ function SetupPage({onComplete,onBack}){
 function ImageUpload({scenario,onGenerate,onBack}){
   const [img,setImg]=useState(null);       // base64 preview
   const [rawFile,setRawFile]=useState(null); // actual File object → createObjectURL
-  const [defId,setDefId]=useState(null);
+  const [defId,setDefId]=useState(scenario==='study'?'coffee':null);
+  const [fileError,setFileError]=useState(null);
   const [drag,setDrag]=useState(false);
   const fileRef=useRef(null);
   const meta=SCENARIO_META.find(s=>s.id===scenario);
   const c=COMPANIONS[scenario];
 
   const readFile=f=>{
+    setFileError(null);
+    if(!f?.type?.startsWith('image/')){
+      setImg(null);setRawFile(null);setDefId(scenario==='study'?'coffee':null);
+      setFileError('That file could not be read as an image. Using the default companion instead.');
+      return;
+    }
     setRawFile(f);
-    const r=new FileReader(); r.onload=e=>{setImg(e.target.result);setDefId(null);}; r.readAsDataURL(f);
+    const r=new FileReader();
+    r.onload=e=>{setImg(e.target.result);setDefId(null);};
+    r.onerror=()=>{
+      setImg(null);setRawFile(null);setDefId(scenario==='study'?'coffee':null);
+      setFileError('That image could not be read. Using the default companion instead.');
+    };
+    r.readAsDataURL(f);
   };
-  const onDrop=e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')) readFile(f);};
+  const onDrop=e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f) readFile(f);};
 
   const go=()=>{
     // Pass the object URL (stable) for use throughout the app, or null for default
@@ -973,11 +1067,12 @@ function ImageUpload({scenario,onGenerate,onBack}){
             </div>
           )}
         </div>
+        {fileError&&<p className="mb-5 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs font-medium text-amber-200">{fileError}</p>}
 
         <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">Or choose a default</p>
         <div className="grid grid-cols-3 gap-3 mb-6">
           {meta.defaults.map(d=>(
-            <button key={d.id} onClick={()=>{setDefId(d.id);setImg(null);setRawFile(null);}}
+            <button key={d.id} onClick={()=>{setDefId(d.id);setImg(null);setRawFile(null);setFileError(null);}}
               className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all glass
                 ${defId===d.id?'ring-2 ring-violet-400/60 border-violet-400/40':'border-white/10 hover:border-white/20'}`}>
               <span className="text-3xl">{d.emoji}</span>
@@ -1160,7 +1255,7 @@ function CField({icon,label,children}){
 /* =================================================================
    PAGE 5a — Chat Mode
    ================================================================= */
-function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemory,onVideoMode}){
+function ChatInterface({companion,messages,onAdd,onResult,onMemorySync,lastResult,onViewMemory,onVideoMode,sessionId,onSessionId}){
   const [input,setInput]=useState('');
   const [typing,setTyping]=useState(false);
   const [speakingId,setSpeakingId]=useState(null);
@@ -1189,12 +1284,25 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
     const userMessage=text.trim();
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
     setInput('');setTyping(true);
-    await new Promise(r=>setTimeout(r,900));
-    const res=generateChatResult(companion.scenario,userMessage);
+    const res=await requestRuntimeTurn({
+      scenario:companion.scenario,message:userMessage,channel:'text',
+      tone:companion.tone,use_case:companion.use_case,companion,session_id:sessionId,
+    });
     setTyping(false);
+    if(res.session_id) onSessionId(res.session_id);
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:res.reply,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
+  };
+  const syncCheckIn=async option=>{
+    const recentGoal=[...messages].reverse().find(message=>message.role==='user')?.content||`Sprint check-in: ${option}`;
+    const res=await requestRuntimeTurn({
+      scenario:companion.scenario,message:recentGoal,channel:'text',
+      tone:companion.tone,use_case:companion.use_case,companion,session_id:sessionId,
+      check_in_result:option,
+    });
+    if(res.session_id) onSessionId(res.session_id);
+    onMemorySync(res.memory,res);
   };
 
   const doSpeak=(id,text)=>{
@@ -1323,7 +1431,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
       {/* Right sidebar */}
       <div className="lg:w-80 xl:w-96 px-4 pb-6 lg:pt-6 space-y-4 flex-shrink-0">
         <AdaptiveModePanel result={lastResult} scenario={companion.scenario} typing={typing}/>
-        {lastResult&&<div className="anim-slide-up"><MicroTaskPanel result={lastResult}/></div>}
+        {lastResult&&<div className="anim-slide-up"><MicroTaskPanel result={lastResult} onCheckIn={syncCheckIn}/></div>}
         <div className="glass rounded-2xl p-4 text-center">
           <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-2">Multimodal Interaction</p>
           <div className="flex justify-center gap-3 text-sm">
@@ -1345,7 +1453,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
 /* =================================================================
    PAGE 5b — Video Companion Mode (ACG flagship)
    ================================================================= */
-function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,onResult,lastResult}){
+function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,onResult,lastResult,sessionId,onSessionId}){
   const [speaking,setSpeaking]=useState(false);
   const [subtitle,setSubtitle]=useState('');
   const [showSub,setShowSub]=useState(false);
@@ -1377,8 +1485,11 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     const userMessage=text.trim();
     setSubtitle(`You: ${userMessage}`); setShowSub(true);
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
-    await new Promise(r=>setTimeout(r,600));
-    const res=generateChatResult(companion.scenario,userMessage);
+    const res=await requestRuntimeTurn({
+      scenario:companion.scenario,message:userMessage,channel:'voice',
+      tone:companion.tone,use_case:companion.use_case,companion,session_id:sessionId,
+    });
+    if(res.session_id) onSessionId(res.session_id);
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:res.reply,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
@@ -1504,6 +1615,8 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
    ================================================================= */
 function MemoryResult({companion,lastResult,memory,onHome,onTryAnother,onVideoMode,onChatMode}){
   const c=COMPANIONS[companion.scenario];
+  const tasks=getRuntimeTasks(lastResult);
+  const latestCheckIn=memory.check_in_history?.[0];
   return(
     <div className="min-h-screen px-4 py-10">
       <div className="max-w-3xl mx-auto space-y-6 anim-slide-up">
@@ -1547,10 +1660,11 @@ function MemoryResult({companion,lastResult,memory,onHome,onTryAnother,onVideoMo
         <div className="glass rounded-3xl p-6 border border-white/10">
           <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4 flex items-center gap-1.5"><span>🎯</span>Generated Micro-Tasks</p>
           <div className="space-y-2 mb-5">
-            {lastResult.micro_task.map((t,i)=>(
+            {tasks.map((task,i)=>(
               <div key={i} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2.5 border border-white/10">
                 <span className="w-6 h-6 rounded-full bg-white/10 text-white/60 text-xs font-black flex items-center justify-center flex-shrink-0">{i+1}</span>
-                <span className="text-sm text-white/70 font-medium">{t}</span>
+                <span className="text-sm text-white/70 font-medium">{task.label}</span>
+                <span className="ml-auto text-xs font-bold text-white/30">{task.duration_minutes}m</span>
               </div>
             ))}
           </div>
@@ -1563,7 +1677,8 @@ function MemoryResult({companion,lastResult,memory,onHome,onTryAnother,onVideoMo
         {/* Memory — relational */}
         <div className="bg-violet-500/10 border border-violet-400/20 rounded-3xl p-6">
           <p className="text-xs font-bold text-violet-300/60 uppercase tracking-widest mb-3 flex items-center gap-1.5"><span>🧠</span>What your companion learned</p>
-          <p className="text-base text-violet-200/80 font-semibold leading-relaxed italic mb-3">"{lastResult.memory_update}"</p>
+          <p className="text-base text-violet-200/80 font-semibold leading-relaxed italic mb-3">"{memory.latest_memory_update||memory.memory_update||lastResult.memory_update}"</p>
+          {latestCheckIn&&<p className="mb-3 text-xs font-bold text-violet-200/70">Latest synced check-in: {latestCheckIn.result.replaceAll('_',' ')}</p>}
           <p className="text-xs text-violet-300/50 leading-relaxed">This is not just progress tracking. Your companion is learning how to support <em>you specifically</em> — so next time you feel stuck, it already knows how to help you start.</p>
         </div>
 
@@ -1614,12 +1729,14 @@ function App(){
   const [messages,setMessages]=useState([]);
   const [lastResult,setLastResult]=useState(null);
   const [memory,setMemory]=useState(null);
+  const [sessionId,setSessionId]=useState(null);
   const [currentViewMode,setCurrentViewMode]=useState('chat');
 
   const reset=()=>{
+    if(selectedImageUrl?.startsWith('blob:')) URL.revokeObjectURL(selectedImageUrl);
     setStep('scenario');setScenario(null);setSetupProfile(null);
     setSelectedImageUrl(null);setSelectedImagePreview(null);
-    setCompanion(null);setMessages([]);setLastResult(null);setMemory(null);
+    setCompanion(null);setMessages([]);setLastResult(null);setMemory(null);setSessionId(null);
   };
 
   const onSelect=s=>{setScenario(s);setStep('setup');};
@@ -1630,6 +1747,7 @@ function App(){
   };
 
   const onGenerate=(imageUrl,imgBase64)=>{
+    if(selectedImageUrl?.startsWith('blob:')) URL.revokeObjectURL(selectedImageUrl);
     setSelectedImageUrl(imageUrl);
     setSelectedImagePreview(imgBase64);
     setStep('progress');
@@ -1646,7 +1764,7 @@ function App(){
       ...(setupProfile?{tone:setupProfile.tone,use_case:setupProfile.use_case,role:setupProfile.role}:{}),
     };
     setCompanion(profile);
-    setMessages([]);setLastResult(null);setMemory(null);
+    setMessages([]);setLastResult(null);setMemory(null);setSessionId(null);
     setStep('companion');
   };
 
@@ -1654,12 +1772,20 @@ function App(){
   const onResult=(res,userMessage)=>{
     setLastResult(res);
     setMemory({
+      ...(res.memory||{}),
       current_companion:companion?.name||'',
       last_goal:userMessage||res.memory?.recent_goals?.[0]||'Start a session',
       preferred_interaction_mode:currentViewMode==='video'?'Voice + Video Mode':'Text + Voice Chat',
       recent_mode:res.mode,
       memory_update:res.memory_update,
     });
+  };
+  const onMemorySync=(serverMemory,res)=>{
+    setMemory(previous=>({
+      ...(previous||{}),
+      ...(serverMemory||{}),
+      memory_update:serverMemory?.latest_memory_update||res?.memory_update||previous?.memory_update,
+    }));
   };
 
   const safeMem=memory||{current_companion:companion?.name||'',last_goal:'Starting a session',preferred_interaction_mode:'Voice-based',recent_mode:lastResult?.mode||'Companion Mode',memory_update:'First session.'};
@@ -1693,13 +1819,15 @@ function App(){
       )}
       {step==='chat'&&companion&&(
         <ChatInterface companion={companion} messages={messages}
-          onAdd={m=>setMessages(p=>[...p,m])} onResult={onResult} lastResult={lastResult}
+          onAdd={m=>setMessages(p=>[...p,m])} onResult={onResult} onMemorySync={onMemorySync} lastResult={lastResult}
+          sessionId={sessionId} onSessionId={setSessionId}
           onViewMemory={()=>setStep('result')}
           onVideoMode={()=>{setCurrentViewMode('video');setStep('video');}}/>
       )}
       {step==='video'&&companion&&(
         <VideoCompanionMode companion={companion} messages={messages}
           onAdd={m=>setMessages(p=>[...p,m])} onResult={onResult} lastResult={lastResult}
+          sessionId={sessionId} onSessionId={setSessionId}
           onChatMode={()=>{setCurrentViewMode('chat');setStep('chat');}}
           onViewMemory={()=>setStep('result')}/>
       )}

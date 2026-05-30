@@ -7,6 +7,7 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "test:api": "node server/smoke-test.js",
+    "test:d": "node server/d-reliability-test.js",
     "test:mart": "node server/mart-contract-test.js",
     "test:openai": "node server/live-openai-test.js"
   },
