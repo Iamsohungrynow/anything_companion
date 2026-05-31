@@ -64,27 +64,34 @@ MVP user states:
 - Stuck
 - Recovery break needed
 
-## Current Repo
+## Repo Layout
 
-Current files:
+Root stays operational: package/env/deploy files, `README.md`, and `AGENTS.md`.
 
-- `nextstep-companion.html` - standalone React/Tailwind demo.
-- `nextstep-companion-data.json` - companion config, mock responses, schema notes.
+Categorized folders:
+
+- `frontend/static/` - served standalone demo (`nextstep-companion.html`) and companion data JSON.
+- `frontend/person-c/` - Person C interaction-system React deliverable.
 - `server/` - no-dependency Node backend runtime owned by Mart.
-- `.env.example` - local environment variable template.
-- `MART_BACKEND_TEST_CASES.md` - backend/API test matrix for Mart's scope.
-- `IMPLEMENTATION_PLAN.md` - detailed architecture and build plan.
-- `DUTY_SPLIT.md` - four-person team ownership and timeline.
+- `server/engines/openai/` - OpenAI Responses API adapter.
+- `server/engines/mock/` - emergency fallback engine only.
+- `server/engines/runtime/` - orchestration layer.
+- `server/tests/` - API, Mart, Person D, agent contract, and live OpenAI tests.
+- `assets/companions/` - default object companion images.
+- `docs/planning/` - implementation plan and duty split.
+- `docs/testing/` - backend/API test matrices.
+- `docs/deliverables/` - Person C/D deliverables and QA notes.
+- `docs/pitch/` - pitch and final narrative documents.
 
 ## How To Use These Docs
 
 Use `README.md` for the short project story and judging angle.
 
-Use `IMPLEMENTATION_PLAN.md` when deciding what to build, how the runtime should work, and what the frontend/backend contract should return.
+Use `docs/planning/IMPLEMENTATION_PLAN.md` when deciding what to build, how the runtime should work, and what the frontend/backend contract should return.
 
-Use `DUTY_SPLIT.md` during the hackathon to keep the team from overlapping work or arguing about ownership.
+Use `docs/planning/DUTY_SPLIT.md` during the hackathon to keep the team from overlapping work or arguing about ownership.
 
-Use `MART_BACKEND_TEST_CASES.md` to verify the backend/API runtime boundary before integrating with frontend work.
+Use `docs/testing/MART_BACKEND_TEST_CASES.md` to verify the backend/API runtime boundary before integrating with frontend work.
 
 Important current code anchors:
 
@@ -112,7 +119,7 @@ npm run dev
 Open:
 
 ```text
-http://127.0.0.1:3000
+http://127.0.0.1:3017/nextstep-companion.html
 ```
 
 Available API endpoints:
@@ -156,8 +163,10 @@ Local runtime hardening:
 Backend verification:
 
 ```powershell
+npm run test:agents
 npm run test:mart
 npm run test:api
+npm run test:d
 ```
 
 Optional live OpenAI verification, after setting `OPENAI_API_KEY` in `.env`:
