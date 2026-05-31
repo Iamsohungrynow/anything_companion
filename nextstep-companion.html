@@ -286,6 +286,9 @@ function generateChatResult(scenario, msg) {
 const ttsSup = typeof window!=='undefined' && 'speechSynthesis' in window;
 let speechRunId=0;
 let lockedTtsVoice;
+let activeTtsAudio=null;
+let activeTtsSource=null;
+let ttsAudioContext=null;
 function cleanSpeechText(text){
   return String(text)
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,'')
@@ -338,10 +341,104 @@ function chooseNaturalVoice(){
   }
   return null;
 }
-function speakText(text,onEnd,voiceWaits=0){
+async function unlockTtsAudio(){
+  try{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx) return null;
+    if(!ttsAudioContext) ttsAudioContext=new AudioCtx();
+    if(ttsAudioContext.state==='suspended') await ttsAudioContext.resume();
+    const buffer=ttsAudioContext.createBuffer(1,1,22050);
+    const source=ttsAudioContext.createBufferSource();
+    source.buffer=buffer;
+    source.connect(ttsAudioContext.destination);
+    source.start(0);
+    return ttsAudioContext;
+  }catch(e){
+    return null;
+  }
+}
+if(typeof window!=='undefined'){
+  window.addEventListener('pointerdown',unlockTtsAudio,{capture:true});
+  window.addEventListener('keydown',unlockTtsAudio,{capture:true});
+}
+async function speakText(text,onEnd,options={},voiceWaits=0){
+  const spoken=cleanSpeechText(text);
+  if(!spoken){if(onEnd) onEnd(); return;}
+  const runId=++speechRunId;
+  let audioUrl=null;
+  let audioBytes=null;
+  const playAudioUrl=async(url)=>{
+    if(runId!==speechRunId) return;
+    const audio=new Audio(url);
+    activeTtsAudio=audio;
+    audio.onended=()=>{URL.revokeObjectURL(url);activeTtsAudio=null;if(onEnd) onEnd();};
+    audio.onerror=()=>{
+      URL.revokeObjectURL(url);
+      activeTtsAudio=null;
+      if(options.onError) options.onError();
+      else if(onEnd) onEnd();
+    };
+    await audio.play();
+  };
+  const makeManualPlay=bytes=>()=>playAudioUrl(URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'})));
+  const playAudioBuffer=async(bytes)=>{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx) throw new Error('Web Audio unavailable');
+    if(!ttsAudioContext) ttsAudioContext=new AudioCtx();
+    if(ttsAudioContext.state==='suspended') await ttsAudioContext.resume();
+    if(ttsAudioContext.state!=='running') throw new Error('Audio context blocked');
+    const decoded=await ttsAudioContext.decodeAudioData(bytes.slice(0));
+    if(runId!==speechRunId) return;
+    const source=ttsAudioContext.createBufferSource();
+    activeTtsSource=source;
+    source.buffer=decoded;
+    source.connect(ttsAudioContext.destination);
+    source.onended=()=>{
+      if(runId!==speechRunId) return;
+      activeTtsSource=null;
+      if(onEnd) onEnd();
+    };
+    source.start(0);
+    if(options.onPlaying) options.onPlaying();
+  };
+  try{
+    if(options.onLoading) options.onLoading();
+    window.speechSynthesis?.cancel();
+    if(activeTtsAudio){
+      activeTtsAudio.pause();
+      activeTtsAudio.src='';
+      activeTtsAudio=null;
+    }
+    if(activeTtsSource){
+      try{activeTtsSource.stop(0);}catch(e){}
+      activeTtsSource=null;
+    }
+
+    const response=await fetch('/api/tts',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:spoken}),
+    });
+    if(!response.ok) throw new Error('TTS proxy failed');
+    audioBytes=await response.arrayBuffer();
+    if(runId!==speechRunId) return;
+    if(options.onReady) options.onReady(makeManualPlay(audioBytes));
+    await playAudioBuffer(audioBytes);
+  }catch(e){
+    if(audioBytes&&!audioUrl){
+      audioUrl=URL.createObjectURL(new Blob([audioBytes],{type:'audio/mpeg'}));
+    }
+    if(audioUrl&&options.onBlocked){
+      options.onBlocked(()=>playAudioUrl(audioUrl));
+      return;
+    }
+    if(options.onError) options.onError();
+    else if(onEnd) onEnd();
+  }
+}
+function speakBrowserText(text,onEnd,voiceWaits=0,runId=++speechRunId){
   try{
     if(!ttsSup) return;
-    const runId=++speechRunId;
     window.speechSynthesis.cancel();
     const chunks=splitSpeechText(text);
     if(chunks.length===0){if(onEnd) onEnd(); return;}
@@ -364,7 +461,7 @@ function speakText(text,onEnd,voiceWaits=0){
     speakChunk(0);
   }catch(e){}
 }
-function stopSpeaking(){try{speechRunId++;if(ttsSup) window.speechSynthesis.cancel();}catch(e){}}
+function stopSpeaking(){try{speechRunId++;if(activeTtsSource){try{activeTtsSource.stop(0);}catch(e){}activeTtsSource=null;}if(activeTtsAudio){activeTtsAudio.pause();activeTtsAudio.src='';activeTtsAudio=null;}if(ttsSup) window.speechSynthesis.cancel();}catch(e){}}
 
 /* =================================================================
    VOICE INPUT HOOK (useVoiceInput)
@@ -1422,6 +1519,8 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
   const [speaking,setSpeaking]=useState(false);
   const [subtitle,setSubtitle]=useState('');
   const [showSub,setShowSub]=useState(false);
+  const [pendingVoicePlay,setPendingVoicePlay]=useState(null);
+  const [voiceStatus,setVoiceStatus]=useState('');
   const [autoPlay,setAutoPlay]=useState(true);
   const [activeVideo,setActiveVideo]=useState(COMPANION_IDLE_VIDEO);
   const [videoLabel,setVideoLabel]=useState('Idle Loop');
@@ -1466,6 +1565,7 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
   const playIdleLoop=()=>{
     setSpeaking(false);
     setHoldReplyVideo(false);
+    setVoiceStatus('');
     setActiveVideo(COMPANION_IDLE_VIDEO);
     setVideoLabel('Idle Loop');
     setTimeout(()=>setShowSub(false),2000);
@@ -1479,9 +1579,35 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     setShowSub(true);
     setVideoError(false);
     setHoldReplyVideo(true);
+    setPendingVoicePlay(null);
+    setVoiceStatus('Preparing Fish voice...');
     setVideoLabel(nextVideo.split('/').pop().replace(/\.[^.]+$/,''));
     setActiveVideo(nextVideo);
-    speakText(text,playIdleLoop);
+    speakText(text,playIdleLoop,{
+      onLoading:()=>{
+        setVoiceStatus('Preparing Fish voice...');
+      },
+      onReady:(playVoice)=>{
+        setPendingVoicePlay(()=>playVoice);
+        setVoiceStatus('Voice ready. If your browser stays silent, tap Play voice.');
+      },
+      onPlaying:()=>{
+        setVoiceStatus('Fish voice is playing...');
+      },
+      onBlocked:(playVoice)=>{
+        setPendingVoicePlay(()=>playVoice);
+        setVoiceStatus('Browser blocked autoplay. Tap Play voice.');
+        setSubtitle(`${text}  Tap Play voice if audio did not start.`);
+        setShowSub(true);
+      },
+      onError:()=>{
+        setPendingVoicePlay(null);
+        setVoiceStatus('Fish voice failed. Check /api/tts.');
+        setSubtitle(`${text}  Fish voice failed. Please check /api/tts.`);
+        setShowSub(true);
+        playIdleLoop();
+      }
+    });
   };
 
   const handleSend=async text=>{
@@ -1571,6 +1697,19 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
           <p className="glass rounded-2xl px-4 py-3 text-sm text-white/85 font-medium leading-relaxed border border-white/10 inline-block max-w-full">
             {subtitle}
           </p>
+          {voiceStatus&&(
+            <p className="mt-2 text-xs font-semibold text-violet-200/80">
+              {voiceStatus}
+            </p>
+          )}
+          {pendingVoicePlay&&(
+            <button
+              onClick={()=>{const play=pendingVoicePlay;setVoiceStatus('Fish voice is playing...');play();}}
+              className="mt-3 rounded-full bg-violet-500 px-5 py-2 text-xs font-black text-white shadow-lg hover:bg-violet-400 transition-colors"
+            >
+              🔊 Play voice
+            </button>
+          )}
         </div>
 
         {/* Controls */}

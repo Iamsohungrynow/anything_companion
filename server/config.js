@@ -11,6 +11,9 @@ const PORT = parsePositiveInteger(process.env.PORT, 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const OPENAI_TIMEOUT_MS = parsePositiveInteger(process.env.OPENAI_TIMEOUT_MS, 12000);
+const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY || "";
+const FISH_AUDIO_REFERENCE_ID = process.env.FISH_AUDIO_REFERENCE_ID || "";
+const FISH_AUDIO_TIMEOUT_MS = parsePositiveInteger(process.env.FISH_AUDIO_TIMEOUT_MS, 20000);
 const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "true";
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
 const SESSION_TTL_MS = parsePositiveInteger(process.env.SESSION_TTL_MS, 1000 * 60 * 60 * 8);
@@ -47,6 +50,9 @@ module.exports = {
   HOST,
   OPENAI_MODEL,
   OPENAI_TIMEOUT_MS,
+  FISH_AUDIO_API_KEY,
+  FISH_AUDIO_REFERENCE_ID,
+  FISH_AUDIO_TIMEOUT_MS,
   USE_MOCK_AI,
   MAX_SESSIONS,
   SESSION_TTL_MS,

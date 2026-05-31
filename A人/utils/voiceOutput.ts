@@ -18,6 +18,9 @@ let lockedVoiceName: string | null = null;
 let lockedScenario: Scenario | null = null;
 let speechRunId = 0;
 let lockedSpeechVoice: SpeechSynthesisVoice | null | undefined;
+let activeTtsAudio: HTMLAudioElement | null = null;
+let activeTtsSource: AudioBufferSourceNode | null = null;
+let ttsAudioContext: AudioContext | null = null;
 
 const voiceSelectionPerScenario: Record<Scenario, { voiceName: string; config: VoiceConfig }> = {
   study: {
@@ -132,11 +135,90 @@ export function getLockedVoiceName(): string {
   return lockedVoiceName ?? 'Default';
 }
 
-export function speakText(text: string, scenario: Scenario, onEnd?: () => void, voiceWaits = 0) {
+async function unlockTtsAudio(): Promise<AudioContext | null> {
+  try {
+    const audioWindow = window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+    const AudioCtx = audioWindow.AudioContext || audioWindow.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!ttsAudioContext) ttsAudioContext = new AudioCtx();
+    if (ttsAudioContext.state === 'suspended') await ttsAudioContext.resume();
+
+    const buffer = ttsAudioContext.createBuffer(1, 1, 22050);
+    const source = ttsAudioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ttsAudioContext.destination);
+    source.start(0);
+    return ttsAudioContext;
+  } catch {
+    return null;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', unlockTtsAudio, { capture: true });
+  window.addEventListener('keydown', unlockTtsAudio, { capture: true });
+}
+
+export async function speakText(text: string, scenario: Scenario, onEnd?: () => void, voiceWaits = 0) {
+  const spokenText = cleanSpeechText(text);
+  if (!spokenText) {
+    onEnd?.();
+    return;
+  }
+
+  const runId = ++speechRunId;
+  try {
+    window.speechSynthesis?.cancel();
+    if (activeTtsAudio) {
+      activeTtsAudio.pause();
+      activeTtsAudio.src = '';
+      activeTtsAudio = null;
+    }
+    if (activeTtsSource) {
+      try {
+        activeTtsSource.stop(0);
+      } catch {
+        // Already stopped.
+      }
+      activeTtsSource = null;
+    }
+
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: spokenText }),
+    });
+    if (!response.ok) throw new Error('TTS proxy failed');
+
+    const audioWindow = window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+    const AudioCtx = audioWindow.AudioContext || audioWindow.webkitAudioContext;
+    if (!AudioCtx) throw new Error('Web Audio unavailable');
+    if (!ttsAudioContext) ttsAudioContext = new AudioCtx();
+    if (ttsAudioContext.state === 'suspended') await ttsAudioContext.resume();
+
+    const audioBytes = await response.arrayBuffer();
+    const decoded = await ttsAudioContext.decodeAudioData(audioBytes.slice(0));
+    if (runId !== speechRunId) return;
+
+    const source = ttsAudioContext.createBufferSource();
+    activeTtsSource = source;
+    source.buffer = decoded;
+    source.connect(ttsAudioContext.destination);
+    source.onended = () => {
+      if (runId !== speechRunId) return;
+      activeTtsSource = null;
+      onEnd?.();
+    };
+    source.start(0);
+  } catch {
+    onEnd?.();
+  }
+}
+
+function speakBrowserText(text: string, scenario: Scenario, onEnd?: () => void, voiceWaits = 0, runId = ++speechRunId) {
   if (!isSpeechSynthesisSupported()) return;
 
   const synth = window.speechSynthesis;
-  const runId = ++speechRunId;
   synth.cancel(); // Cancel any ongoing speech
 
   const chunks = splitSpeechText(text);
@@ -148,7 +230,7 @@ export function speakText(text: string, scenario: Scenario, onEnd?: () => void, 
   const config = voiceSelectionPerScenario[scenario].config;
   const voice = chooseNaturalVoice(synth.getVoices(), lockedVoiceName);
   if (!voice && voiceWaits < 12) {
-    window.setTimeout(() => speakText(text, scenario, onEnd, voiceWaits + 1), 150);
+    window.setTimeout(() => speakBrowserText(text, scenario, onEnd, voiceWaits + 1, runId), 150);
     return;
   }
 
@@ -177,8 +259,21 @@ export function speakText(text: string, scenario: Scenario, onEnd?: () => void, 
 }
 
 export function stopSpeaking() {
+  speechRunId++;
+  if (activeTtsSource) {
+    try {
+      activeTtsSource.stop(0);
+    } catch {
+      // Already stopped.
+    }
+    activeTtsSource = null;
+  }
+  if (activeTtsAudio) {
+    activeTtsAudio.pause();
+    activeTtsAudio.src = '';
+    activeTtsAudio = null;
+  }
   if (isSpeechSynthesisSupported()) {
-    speechRunId++;
     window.speechSynthesis.cancel();
   }
 }
