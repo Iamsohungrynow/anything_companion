@@ -1869,6 +1869,7 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
   const [showSub,setShowSub]=useState(false);
   const [autoPlay,setAutoPlay]=useState(true);
   const currentState=getCompanionStateInfo(speaking?'happy':lastResult?.companion_state);
+  const runtimeFallback=Boolean(lastResult?.fallback_used);
 
   const onVoice=useCallback(t=>{
     // In video mode, auto-send after voice transcript
