@@ -3,10 +3,6 @@ const { normalizeRuntimeResult } = require("../schemas");
 const LOW_KEYWORDS = [
   "tired",
   "procrastinat",
-  "study",
-  "exam",
-  "quiz",
-  "finance",
   "boring",
   "hard",
   "difficult",
