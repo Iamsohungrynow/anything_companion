@@ -9,6 +9,43 @@ async function runOpenAI({ input, session, repairContext }) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+  const allowWebSearch = shouldAllowWebSearch(input);
+  const requestBody = {
+    model: allowWebSearch ? OPENAI_SEARCH_MODEL : OPENAI_MODEL,
+    input: [
+      {
+        role: "system",
+        content: [
+          {
+            type: "input_text",
+            text: buildSystemPrompt(),
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: JSON.stringify(buildRuntimePayload(input, session, allowWebSearch, repairContext)),
+          },
+        ],
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "nextstep_runtime_response",
+        schema: runtimeResponseJsonSchema,
+        strict: true,
+      },
+    },
+  };
+
+  if (allowWebSearch) {
+    requestBody.tools = [{ type: "web_search" }];
+    requestBody.tool_choice = "auto";
+  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
