@@ -586,6 +586,128 @@ function buildGoalUnderstanding(message, mode) {
   return `You want support with "${message}". We will choose one small next action and check back after.`;
 }
 
+function hasActionableGoal(message) {
+  return ACTION_KEYWORDS.some((keyword) => message.includes(keyword)) || Boolean(extractGoalSubject(message));
+}
+
+function detectIntent(message) {
+  const lower = String(message || "").toLowerCase();
+  if (extractContinuationSubject(message)) return "continue_context";
+  if (TEACH_KEYWORDS.some((keyword) => lower.includes(keyword))) return "teach_concept";
+  if (STEP_KEYWORDS.some((keyword) => lower.includes(keyword))) return "decompose_task";
+  if (lower.match(/\b(quiz me|test me|question me)\b/)) return "quiz";
+  if (FOLLOW_UP_KEYWORDS.some((keyword) => lower.includes(keyword)) && !extractGoalSubject(message)) return "vague_help";
+  if (LOW_KEYWORDS.some((keyword) => lower.includes(keyword))) return "emotional_support";
+  if (hasActionableGoal(lower)) return "plan_task";
+  return "general_chat";
+}
+
+function extractContinuationSubject(message) {
+  const match = String(message || "").trim().match(/^(?:and|also|then|next)\s+(.{2,80})$/i);
+  return cleanSubject(match?.[1]);
+}
+
+function extractGoalSubject(message) {
+  const text = String(message || "")
+    .replace(/[’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
+
+  const patterns = [
+    /\b(?:i\s+have|i\s+got|i've\s+got)\s+(?:a|an|the|my)?\s*(.+?)(?:\s+(?:but|and)\s+i\b|$)/i,
+    /\b(?:stuck\s+on|stuck\s+with|confused\s+by|confused\s+about|struggling\s+with)\s+(.+)/i,
+    /\b(?:i\s+need\s+to|i\s+want\s+to|i\s+have\s+to|i\s+gotta|i\s+should)\s+(?:study|learn|review|prepare\s+for|practice|understand|finish|start|work\s+on)\s+(.+)/i,
+    /\b(?:study|learn|review|prepare\s+for|practice|understand|finish|start|work\s+on)\s+(.+)/i,
+    /\b(?:quiz|exam|homework|assignment|essay|report)\s+(?:on|about|for)\s+(.+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const cleaned = cleanSubject(match?.[1]);
+    if (cleaned) return cleaned;
+  }
+
+  return "";
+}
+
+function extractConceptSubject(message) {
+  const text = String(message || "").trim();
+  const patterns = [
+    /\b(?:concept|definition|meaning)\s+(?:of|for)\s+(.+)/i,
+    /\b(?:explain|define|teach\s+me|give\s+me\s+(?:the\s+)?concept\s+of|give\s+concept\s+of)\s+(.+)/i,
+    /\bwhat\s+(?:is|are)\s+(.+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const cleaned = cleanSubject(match?.[1]);
+    if (cleaned) return cleaned;
+  }
+
+  return "";
+}
+
+function extractSubjectFromHistory(history) {
+  if (!Array.isArray(history)) return "";
+  for (const item of [...history].reverse()) {
+    if (item?.role && item.role !== "user") continue;
+    const subject = extractGoalSubject(item?.content || "");
+    if (subject) return subject;
+  }
+  return "";
+}
+
+function extractSubjectFromMemory(session) {
+  const memory = session?.memory || {};
+  const candidates = [
+    memory.last_goal,
+    ...(Array.isArray(memory.recent_goals) ? memory.recent_goals : []),
+  ];
+  for (const candidate of candidates) {
+    const subject = extractGoalSubject(candidate) || extractConceptSubject(candidate);
+    if (subject) return subject;
+  }
+  return "";
+}
+
+function cleanSubject(value) {
+  if (!value) return "";
+  let subject = String(value)
+    .replace(/\s+/g, " ")
+    .replace(/[.!?]+$/g, "")
+    .trim();
+
+  subject = subject
+    .replace(/^(?:learning|studying|reviewing|practicing|starting|start learning|start studying)\s+/i, "")
+    .replace(/\b(today|tonight|now|please|pls|again|first)\b.*$/i, "")
+    .replace(/\b(?:but|and)\s+(?:i|it|this|that)\b.*$/i, "")
+    .replace(/\b(?:for|in)\s+(?:my|the)?\s*(?:quiz|exam|homework|assignment|class)\b.*$/i, "")
+    .trim();
+
+  const filler = new Set(["it", "this", "that", "something", "stuff", "task", "work"]);
+  if (!subject || filler.has(subject.toLowerCase())) return "";
+  return subject.slice(0, 80);
+}
+
+function inferObjectLabel(companion) {
+  const raw = [
+    companion.defaultObject,
+    companion.default_object,
+    companion.selectedDefault,
+    companion.sourceLabel,
+    companion.type,
+    companion.name,
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (raw.includes("lamp") || raw.includes("luma")) return "desk lamp";
+  if (raw.includes("book") || raw.includes("folio")) return "open book";
+  if (raw.includes("coffee") || raw.includes("cup") || raw.includes("cappu")) return "coffee cup";
+  return "";
+}
+
 module.exports = {
   runMockEngine,
+  detectIntent,
+  extractConceptSubject,
+  extractGoalSubject,
 };
