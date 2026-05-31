@@ -24,11 +24,29 @@ async function runTurn(body) {
       runtimeResult = normalizeRuntimeResult(openAIResult, {
         session_id: session.id,
         message: input.message,
+        defaultMode: inferDefaultMode(input),
         fallback_used: false,
       });
+      const repairContext = buildRepairContext(input, runtimeResult);
+      if (repairContext) {
+        const repairedResult = await runOpenAI({ input, session, repairContext });
+        runtimeResult = normalizeRuntimeResult(repairedResult, {
+          session_id: session.id,
+          message: input.message,
+          defaultMode: inferDefaultMode(input),
+          fallback_used: false,
+        });
+        runtimeResult.trace.push({
+          step: "openai_repair",
+          status: "complete",
+          summary: repairContext.reason,
+        });
+      }
+      runtimeResult = applyRuntimeGuards(input, runtimeResult, session);
+      runtimeResult = ensureVisibleTaskFormat(runtimeResult);
     } catch (error) {
       fallbackUsed = true;
-      runtimeResult = runMockEngine(input, companionData);
+      runtimeResult = runMockEngine(input, companionData, session);
       runtimeResult.trace.unshift({
         step: "openai_adapter",
         status: "fallback",
