@@ -10,6 +10,7 @@ const HTML_FILE = path.join(ROOT_DIR, "nextstep-companion.html");
 const PORT = parsePositiveInteger(process.env.PORT, 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const OPENAI_SEARCH_MODEL = process.env.OPENAI_SEARCH_MODEL || "gpt-5.5";
 const OPENAI_TIMEOUT_MS = parsePositiveInteger(process.env.OPENAI_TIMEOUT_MS, 12000);
 const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "true";
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
@@ -25,13 +26,14 @@ function parsePositiveInteger(value, fallback) {
 }
 
 function parseAllowedOrigins(value, port) {
-  if (value && value.trim()) {
-    return parseList(value, []);
-  }
-  return [
+  const portDefaults = [
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
   ];
+  if (value && value.trim()) {
+    return Array.from(new Set([...parseList(value, []), ...portDefaults]));
+  }
+  return portDefaults;
 }
 
 function parseList(value, fallback) {
@@ -46,6 +48,7 @@ module.exports = {
   PORT,
   HOST,
   OPENAI_MODEL,
+  OPENAI_SEARCH_MODEL,
   OPENAI_TIMEOUT_MS,
   USE_MOCK_AI,
   MAX_SESSIONS,
