@@ -220,8 +220,56 @@ const SCENARIO_META = [
    ← REPLACE WITH REAL API: swap generateChatResult() body with fetch()
    ================================================================= */
 const LOW_KW = ["don't want","dont want","do not want","tired","procrastinat",
-  "study","exam","finance","boring","hard","difficult","can't","cannot",
+  "exam","finance","boring","hard","difficult","can't","cannot",
   "stressed","overwhelm","lazy","stuck","hate","ugh","not feeling","don't feel"];
+
+let runtimeSessionId = null;
+let localActiveSubject = '';
+let localActiveIntent = 'general_chat';
+const CHAT_API_URL = '/api/chat';
+const ALLOW_LOCAL_FALLBACK = new URLSearchParams(window.location.search).has('localFallback');
+
+function getAssistantText(result){
+  return result?.answer || result?.reply || "I couldn't generate a response.";
+}
+
+function logChatRuntime(payload){
+  console.info('[nextstep_chat_runtime]', {
+    build_marker:BUILD_MARKER,
+    request_url:CHAT_API_URL,
+    fallback_used:Boolean(payload?.fallback_used),
+    runtime_source:payload?.runtime_source || (payload?.fallback_used?'fallback':'openai'),
+    intent:payload?.intent,
+    mode:payload?.mode,
+    answer:payload?.answer,
+    reply:payload?.reply,
+    final_assistantText:payload?.assistantText || getAssistantText(payload),
+  });
+}
+
+const DEFAULT_OBJECT_COMPANIONS = {
+  coffee:{name:'Cappu',type:'Coffee Cup Study Buddy',default_object_label:'coffee cup'},
+  book:{
+    name:'Folio',
+    type:'Open Book Focus Buddy',
+    default_object_label:'open book',
+    assetUrl:DEFAULT_COMPANION_ASSETS.book,
+    emoji:'📖',
+    personality:['curious','thoughtful','supportive'],
+    backstory:'A glowing open-book companion that keeps the user grounded in one page, one idea, and one small study step at a time.',
+    visual_style:'soft 3D open book, cream pages, violet cover, warm page glow',
+  },
+  lamp:{
+    name:'Luma',
+    type:'Desk Lamp Focus Buddy',
+    default_object_label:'desk lamp',
+    assetUrl:DEFAULT_COMPANION_ASSETS.lamp,
+    emoji:'🪔',
+    personality:['gentle','focused','encouraging'],
+    backstory:'A warm desk-lamp companion that lights up the next clear step and helps the user protect quiet focus time.',
+    visual_style:'soft 3D desk lamp, warm amber glow, rounded shape, calm study-light mood',
+  },
+};
 
 const COMPANION_STATES = {
   idle:{emoji:'😊',label:'Idle',desc:'Waiting with you',cls:'bg-white/5 border-white/10 text-white/60'},
