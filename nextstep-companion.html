@@ -1009,7 +1009,7 @@ function PhotoToPseudo3DPreview({companion, imageUrl, size='md'}){
             </div>
             {hasImage&&(
               <div className="text-white/60 text-[10px] font-medium mt-1" style={{transform:'translateZ(3px)'}}>
-                Generated from your photo
+                {defaultAsset?'AI-generated companion':'Generated from your photo'}
               </div>
             )}
           </div>
