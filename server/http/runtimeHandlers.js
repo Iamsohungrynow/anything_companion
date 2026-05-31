@@ -16,6 +16,7 @@ const {
   ROOT_DIR,
   SESSION_TTL_MS,
   USE_MOCK_AI,
+  VERCEL_HOST_SUFFIXES,
 } = require("../config");
 const { companionData } = require("../data");
 const { runTurn } = require("../engines/runtime/orchestrator");
@@ -191,7 +192,9 @@ function setCors(req, res) {
 
 function isAllowedHost(req) {
   const host = normalizeHost(req.headers.host || "");
-  return Boolean(host) && ALLOWED_HOSTS.includes(host);
+  if (!host) return false;
+  if (ALLOWED_HOSTS.includes(host)) return true;
+  return VERCEL_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
 function normalizeHost(hostHeader) {

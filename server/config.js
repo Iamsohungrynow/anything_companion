@@ -21,6 +21,8 @@ const VERCEL_HOSTNAMES = [
   .map((value) => String(value || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, ""))
   .filter(Boolean);
 const VERCEL_EXTERNAL_URLS = VERCEL_HOSTNAMES.map((hostname) => `https://${hostname}`);
+const IS_VERCEL = String(process.env.VERCEL || "").toLowerCase() === "1" || VERCEL_HOSTNAMES.length > 0;
+const VERCEL_HOST_SUFFIXES = IS_VERCEL ? [".vercel.app"] : [];
 const HOST = process.env.HOST || (RENDER_EXTERNAL_HOSTNAME ? "0.0.0.0" : "127.0.0.1");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const OPENAI_SEARCH_MODEL = process.env.OPENAI_SEARCH_MODEL || "gpt-5.5";
@@ -32,7 +34,7 @@ const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "tru
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
 const SESSION_TTL_MS = parsePositiveInteger(process.env.SESSION_TTL_MS, 1000 * 60 * 60 * 8);
 const ALLOWED_ORIGINS = parseAllowedOrigins(process.env.ALLOWED_ORIGINS, PORT, RENDER_EXTERNAL_URL, VERCEL_EXTERNAL_URLS);
-const ALLOWED_HOSTS = parseList(process.env.ALLOWED_HOSTS, ["127.0.0.1", "localhost", "::1", RENDER_EXTERNAL_HOSTNAME, ...VERCEL_HOSTNAMES])
+const ALLOWED_HOSTS = parseAllowedHosts(process.env.ALLOWED_HOSTS, ["127.0.0.1", "localhost", "::1", RENDER_EXTERNAL_HOSTNAME, ...VERCEL_HOSTNAMES])
   .filter(Boolean)
   .map((host) => host.toLowerCase());
 
@@ -53,6 +55,10 @@ function parseAllowedOrigins(value, port, renderExternalUrl, vercelExternalUrls)
     return Array.from(new Set([...parseList(value, []), ...portDefaults]));
   }
   return portDefaults;
+}
+
+function parseAllowedHosts(value, defaults) {
+  return Array.from(new Set([...parseList(value, []), ...defaults]));
 }
 
 function parseList(value, fallback) {
@@ -78,4 +84,5 @@ module.exports = {
   SESSION_TTL_MS,
   ALLOWED_ORIGINS,
   ALLOWED_HOSTS,
+  VERCEL_HOST_SUFFIXES,
 };

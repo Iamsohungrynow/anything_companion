@@ -220,6 +220,7 @@ ALLOWED_ORIGINS=https://your-domain.example
 ```
 
 Vercel preview/production URLs are auto-detected from Vercel's own environment variables when available.
+Vercel `*.vercel.app` hosts are accepted automatically on Vercel. If `/api/health` returns `Host not allowed`, remove any stale `ALLOWED_HOSTS` value from the Vercel dashboard or set it to your actual custom domain.
 
 Important memory caveat:
 

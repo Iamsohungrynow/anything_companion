@@ -1,6 +1,7 @@
 "use strict";
 
 process.env.USE_MOCK_AI = "true";
+process.env.VERCEL = "1";
 process.env.HOST = "127.0.0.1";
 process.env.ALLOWED_HOSTS = "127.0.0.1,localhost,::1";
 process.env.ALLOWED_ORIGINS = "http://127.0.0.1:3017,http://localhost:3017";
@@ -17,6 +18,7 @@ const root = path.resolve(__dirname, "..", "..");
 
 async function main() {
   testVercelFiles();
+  testVercelHostConfig();
   const {
     health,
     scenarios,
@@ -89,6 +91,14 @@ async function main() {
   const options = await invoke(chat, { method: "OPTIONS", url: "/api/chat" });
   assert.equal(options.statusCode, 204);
 
+  const vercelHost = await invoke(health, {
+    method: "GET",
+    url: "/api/health",
+    headers: { host: "anything-companion-demo.vercel.app" },
+  });
+  assert.equal(vercelHost.statusCode, 200);
+  assert.equal(vercelHost.json.ok, true);
+
   console.log("Vercel adapter test passed.");
 }
 
@@ -112,6 +122,32 @@ function testVercelFiles() {
   assert.ok(vercelConfig.rewrites.some((rewrite) => rewrite.source === "/nextstep-companion-data.json"));
   assert.ok(vercelConfig.rewrites.some((rewrite) => rewrite.source === "/assets/:path*"));
   assert.ok(vercelConfig.functions["api/**/*.mjs"], "Vercel must configure .mjs API functions");
+}
+
+function testVercelHostConfig() {
+  const script = `
+    process.env.VERCEL = "1";
+    process.env.ALLOWED_HOSTS = "127.0.0.1,localhost,::1";
+    process.env.VERCEL_URL = "";
+    const config = require("./server/config");
+    process.stdout.write(JSON.stringify({
+      hosts: config.ALLOWED_HOSTS,
+      suffixes: config.VERCEL_HOST_SUFFIXES
+    }));
+  `;
+  const { execFileSync } = require("child_process");
+  const result = JSON.parse(execFileSync(process.execPath, ["-e", script], {
+    cwd: root,
+    env: {
+      PATH: process.env.PATH,
+      SystemRoot: process.env.SystemRoot,
+      ComSpec: process.env.ComSpec,
+      PATHEXT: process.env.PATHEXT,
+    },
+    encoding: "utf8",
+  }));
+  assert.ok(result.hosts.includes("127.0.0.1"));
+  assert.ok(result.suffixes.includes(".vercel.app"));
 }
 
 async function loadHandlers() {
