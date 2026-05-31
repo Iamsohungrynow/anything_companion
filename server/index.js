@@ -72,6 +72,17 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/chat") {
       const body = await readJson(req);
       const result = await runTurn(body);
+      console.log(
+        "[api/chat]",
+        JSON.stringify({
+          openai_configured: Boolean(process.env.OPENAI_API_KEY),
+          mock_forced: USE_MOCK_AI,
+          runtime_source: result?.fallback_used ? "fallback" : "openai",
+          intent: result?.intent,
+          mode: result?.mode,
+          model: OPENAI_MODEL,
+        })
+      );
       sendJson(res, 200, result);
       return;
     }
@@ -143,7 +154,12 @@ function normalizeHost(hostHeader) {
 }
 
 function sendJson(res, status, payload) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store, max-age=0",
+    Pragma: "no-cache",
+    Expires: "0",
+  });
   res.end(JSON.stringify(payload, null, 2));
 }
 
@@ -202,11 +218,20 @@ function serveStatic(urlPath, method, res) {
     return;
   }
 
+  if (urlPath.startsWith("/assets/")) {
+    serveDirectoryFile(urlPath, "assets", res, isHead);
+    return;
+  }
+
   if (!urlPath.startsWith("/models/")) {
     sendJson(res, 404, { ok: false, error: "Not found." });
     return;
   }
 
+  serveDirectoryFile(urlPath, "models", res, isHead);
+}
+
+function serveDirectoryFile(urlPath, publicRootName, res, isHead) {
   let decodedPath;
   try {
     decodedPath = decodeURIComponent(urlPath);
@@ -215,10 +240,10 @@ function serveStatic(urlPath, method, res) {
     return;
   }
 
-  const modelsRoot = path.resolve(ROOT_DIR, "models");
-  const modelPath = decodedPath.replace(/^\/models[\\/]/, "");
-  const fullPath = path.resolve(modelsRoot, modelPath);
-  const relative = path.relative(modelsRoot, fullPath);
+  const publicRoot = path.resolve(ROOT_DIR, publicRootName);
+  const publicPath = decodedPath.replace(new RegExp(`^/${publicRootName}[\\\\/]`), "");
+  const fullPath = path.resolve(publicRoot, publicPath);
+  const relative = path.relative(publicRoot, fullPath);
   if (relative.startsWith("..") || path.isAbsolute(relative) || !fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
     sendJson(res, 404, { ok: false, error: "Not found." });
     return;
@@ -228,7 +253,12 @@ function serveStatic(urlPath, method, res) {
 }
 
 function sendFile(res, filePath, type, headOnly = false) {
-  res.writeHead(200, { "Content-Type": type });
+  res.writeHead(200, {
+    "Content-Type": type,
+    "Cache-Control": "no-store, max-age=0",
+    Pragma: "no-cache",
+    Expires: "0",
+  });
   if (headOnly) {
     res.end();
     return;
