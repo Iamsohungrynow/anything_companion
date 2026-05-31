@@ -4,8 +4,9 @@ const { loadDotEnv } = require("./env");
 loadDotEnv();
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const DATA_FILE = path.join(ROOT_DIR, "nextstep-companion-data.json");
-const HTML_FILE = path.join(ROOT_DIR, "nextstep-companion.html");
+const FRONTEND_STATIC_DIR = path.join(ROOT_DIR, "frontend", "static");
+const DATA_FILE = path.join(FRONTEND_STATIC_DIR, "nextstep-companion-data.json");
+const HTML_FILE = path.join(FRONTEND_STATIC_DIR, "nextstep-companion.html");
 
 const PORT = parsePositiveInteger(process.env.PORT, 3000);
 const RENDER_EXTERNAL_HOSTNAME = String(process.env.RENDER_EXTERNAL_HOSTNAME || "").trim().toLowerCase();
@@ -52,6 +53,7 @@ function parseList(value, fallback) {
 
 module.exports = {
   ROOT_DIR,
+  FRONTEND_STATIC_DIR,
   DATA_FILE,
   HTML_FILE,
   PORT,
