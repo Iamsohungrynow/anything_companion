@@ -1701,9 +1701,11 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
     setInput('');setTyping(true);
     await new Promise(r=>setTimeout(r,900));
-    const res=generateChatResult(companion.scenario,userMessage);
+    const res=await generateChatResult(companion,userMessage,'text',messages);
     setTyping(false);
-    const cMsg={id:`c-${Date.now()}`,role:'companion',content:res.reply,ts:Date.now()};
+    const assistantText=getAssistantText(res);
+    console.info('[nextstep_render]', {build_marker:BUILD_MARKER, surface:'chat', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
+    const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
   };
