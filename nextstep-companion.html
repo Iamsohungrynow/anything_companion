@@ -1739,8 +1739,8 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
             <h2 className="text-lg font-black text-white truncate">{companion.name}</h2>
             <p className="text-xs text-white/40 truncate">{companion.type}</p>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="w-2 h-2 rounded-full bg-green-400 anim-bounce-soft"/>
-              <span className="text-xs text-green-400 font-semibold">Online</span>
+              <span className={`w-2 h-2 rounded-full anim-bounce-soft ${runtimeFallback?'bg-amber-300':'bg-green-400'}`}/>
+              <span className={`text-xs font-semibold ${runtimeFallback?'text-amber-300':'text-green-400'}`}>{runtimeFallback?'Runtime fallback':'Online'}</span>
               {lastResult&&<><span className="text-white/20 mx-1">·</span><span className="text-xs text-white/40">{lastResult.mode}</span><span className="text-xs text-white/25">· {currentState.label}</span></>}
             </div>
           </div>
