@@ -1,4 +1,4 @@
-const { normalizeRuntimeResult } = require("../schemas");
+const { normalizeRuntimeResult } = require("../../schemas");
 
 const LOW_KEYWORDS = [
   "tired",

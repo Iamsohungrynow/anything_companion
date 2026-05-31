@@ -2,9 +2,9 @@ const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const packageJson = require("../package.json");
-const { ALLOWED_HOSTS, ALLOWED_ORIGINS, HTML_FILE, HOST, PORT, ROOT_DIR, USE_MOCK_AI, OPENAI_MODEL, FISH_AUDIO_API_KEY, FISH_AUDIO_REFERENCE_ID, FISH_AUDIO_TIMEOUT_MS, MAX_SESSIONS, SESSION_TTL_MS } = require("./config");
+const { ALLOWED_HOSTS, ALLOWED_ORIGINS, DATA_FILE, HTML_FILE, HOST, PORT, ROOT_DIR, USE_MOCK_AI, OPENAI_MODEL, FISH_AUDIO_API_KEY, FISH_AUDIO_REFERENCE_ID, FISH_AUDIO_TIMEOUT_MS, MAX_SESSIONS, SESSION_TTL_MS } = require("./config");
 const { companionData } = require("./data");
-const { runTurn } = require("./runtime/orchestrator");
+const { runTurn } = require("./engines/runtime/orchestrator");
 const { normalizeScenario } = require("./schemas");
 const { createSession, getSession, resetSession } = require("./store/sessionStore");
 
@@ -300,7 +300,7 @@ function serveStatic(urlPath, method, res) {
   }
 
   if (urlPath === "/nextstep-companion-data.json") {
-    sendFile(res, path.join(ROOT_DIR, "nextstep-companion-data.json"), "application/json; charset=utf-8", isHead);
+    sendFile(res, DATA_FILE, "application/json; charset=utf-8", isHead);
     return;
   }
 

@@ -1,5 +1,5 @@
-const { OPENAI_MODEL, OPENAI_SEARCH_MODEL, OPENAI_TIMEOUT_MS } = require("../config");
-const { runtimeResponseJsonSchema } = require("../schemas");
+const { OPENAI_MODEL, OPENAI_SEARCH_MODEL, OPENAI_TIMEOUT_MS } = require("../../config");
+const { runtimeResponseJsonSchema } = require("../../schemas");
 
 async function runOpenAI({ input, session, repairContext }) {
   const apiKey = process.env.OPENAI_API_KEY;
