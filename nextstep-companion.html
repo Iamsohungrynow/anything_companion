@@ -2146,8 +2146,11 @@ function App(){
   const [currentViewMode,setCurrentViewMode]=useState('chat');
 
   const reset=()=>{
+    runtimeSessionId=null;
+    localActiveSubject='';
+    localActiveIntent='general_chat';
     setStep('scenario');setScenario(null);setSetupProfile(null);
-    setSelectedImageUrl(null);setSelectedImagePreview(null);
+    setSelectedImageUrl(null);setSelectedImagePreview(null);setSelectedDefaultMeta(null);
     setCompanion(null);setMessages([]);setLastResult(null);setMemory(null);
   };
 
