@@ -110,6 +110,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 const BUILD_MARKER = 'render-answer-v3';
 const DEFAULT_COMPANION_ASSETS = {
+  coffee:'./assets/companions/coffee.jpg',
   book:'./assets/companions/folio-open-book.png',
   lamp:'./assets/companions/luma-desk-lamp.png',
 };
@@ -213,7 +214,7 @@ const SCENARIO_META = [
     desc:'Turn a desk object into a study buddy that helps you start tasks.',
     icon:'☕', tags:['Study Mode','Micro-tasks','Adaptive'],
     steps:['Scanning object…','Extracting study context…','Generating study companion…','Preparing adaptive mode…','Ready to chat.'],
-    defaults:[{id:'coffee',label:'Coffee Cup',emoji:'☕'},{id:'book',label:'Open Book',emoji:'📖',assetUrl:DEFAULT_COMPANION_ASSETS.book},{id:'lamp',label:'Desk Lamp',emoji:'🪔',assetUrl:DEFAULT_COMPANION_ASSETS.lamp}] },
+    defaults:[{id:'coffee',label:'Coffee Cup',emoji:'☕',assetUrl:DEFAULT_COMPANION_ASSETS.coffee},{id:'book',label:'Open Book',emoji:'📖',assetUrl:DEFAULT_COMPANION_ASSETS.book},{id:'lamp',label:'Desk Lamp',emoji:'🪔',assetUrl:DEFAULT_COMPANION_ASSETS.lamp}] },
   { id:'pet', title:'Pet Companion', featured:false,
     desc:'Turn a pet photo into a gentle digital companion for routine check-ins and memory preservation.',
     icon:'🐾', tags:['Routine Check-in','Memory Preservation'],
@@ -254,7 +255,15 @@ function logChatRuntime(payload){
 }
 
 const DEFAULT_OBJECT_COMPANIONS = {
-  coffee:{name:'Cappu',type:'Coffee Cup Study Buddy',default_object_label:'coffee cup'},
+  coffee:{
+    name:'Cappu',
+    type:'Coffee Cup Study Buddy',
+    default_object_label:'coffee cup',
+    assetUrl:DEFAULT_COMPANION_ASSETS.coffee,
+    personality:['cheerful','gentle','encouraging'],
+    backstory:'A warm coffee-cup companion that helps the user wake up, settle in, and begin difficult study tasks.',
+    visual_style:'soft 3D coffee cup companion, warm amber colors, cozy morning study mood',
+  },
   book:{
     name:'Folio',
     type:'Open Book Focus Buddy',
@@ -938,6 +947,12 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
       options.onBlocked(()=>playAudioUrl(audioUrl));
       return;
     }
+    if(ttsSup){
+      console.info('[nextstep_tts_fallback]', 'Using browser speechSynthesis because /api/tts is unavailable or blocked.');
+      if(options.onPlaying) options.onPlaying();
+      speakBrowserText(spoken,onEnd);
+      return;
+    }
     if(options.onError) options.onError();
     else if(onEnd) onEnd();
   }
@@ -950,7 +965,7 @@ function speakBrowserText(text,onEnd,voiceWaits=0,runId=++speechRunId){
     if(chunks.length===0){if(onEnd) onEnd(); return;}
     const pref=chooseNaturalVoice();
     if(!pref&&voiceWaits<12){
-      setTimeout(()=>speakText(text,onEnd,voiceWaits+1),150);
+      setTimeout(()=>speakBrowserText(text,onEnd,voiceWaits+1,runId),150);
       return;
     }
     const speakChunk=(index)=>{
