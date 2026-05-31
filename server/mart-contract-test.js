@@ -13,7 +13,9 @@ let baseUrl = `http://127.0.0.1:${PORT}`;
 const VALID_MODES = new Set([
   "Encourage Mode",
   "Focus Mode",
+  "Study Companion Mode",
   "Study Sprint Mode",
+  "Quiz Mode",
   "Companion Mode",
   "Companion Presence Mode",
   "Routine Check-in Mode",
