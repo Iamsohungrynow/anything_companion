@@ -293,7 +293,113 @@ function getSprintMinutes(result){
   return result?.mode==='Study Sprint Mode'?25:10;
 }
 
-function generateChatResult(scenario, msg) {
+async function generateChatResult(companion, msg, channel='text', messages=[]) {
+  try {
+    const res = await fetch(CHAT_API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        session_id:runtimeSessionId,
+        scenario:companion.scenario,
+        message:msg,
+        channel,
+        tone:companion.tone,
+        role:companion.role,
+        use_case:companion.use_case,
+        companion,
+        image_url:companion.sourceImageUrl,
+        image_metadata:{
+          visualMode:companion.visualMode,
+          default_object_label:companion.default_object_label||'',
+        },
+        history:messages.slice(-6).map(m=>({
+          role:m.role==='companion'?'assistant':'user',
+          content:m.content,
+        })),
+      }),
+    });
+    if (!res.ok) throw new Error(`chat ${res.status}`);
+    const data = await res.json();
+    runtimeSessionId = data.session_id || runtimeSessionId;
+    const normalized = normalizeClientResult(data);
+    logChatRuntime({...normalized, assistantText:getAssistantText(normalized)});
+    return normalized;
+  } catch (err) {
+    console.warn('Chat API unavailable:', err);
+    if(!ALLOW_LOCAL_FALLBACK){
+      const unavailable = normalizeClientResult(buildRuntimeUnavailableResult(companion, msg));
+      logChatRuntime({...unavailable, assistantText:getAssistantText(unavailable)});
+      return unavailable;
+    }
+    console.warn('Using explicit localFallback demo runtime.');
+    const fallback = normalizeClientResult(generateLocalChatResult(companion, msg, messages));
+    const markedFallback = {
+      ...fallback,
+      fallback_used:true,
+      runtime_source:'local_fallback',
+      trace:[
+        ...(fallback.trace||[]),
+        {step:'client_api',status:'fallback',summary:'Browser could not reach /api/chat; explicit localFallback handled this turn.'},
+      ],
+    };
+    logChatRuntime({...markedFallback, assistantText:getAssistantText(markedFallback)});
+    return markedFallback;
+  }
+}
+
+function buildRuntimeUnavailableResult(companion, msg){
+  const subject = extractGoalSubject(msg) || extractConceptSubject(msg) || extractContinuationSubject(msg) || localActiveSubject || 'this task';
+  const answer = `I cannot reach the backend AI runtime right now, so I will not fake a tutor answer for ${subject}. Refresh http://127.0.0.1:3017/nextstep-companion.html after the dev server is running, then send the message again.`;
+  return {
+    intent:'general_chat',
+    answer,
+    reply:answer,
+    detected_state:'Backend AI runtime unavailable',
+    companion_state:'concerned',
+    mode:'Companion Presence Mode',
+    goal_understanding:`The user asked for help with ${subject}, but the browser could not reach /api/chat.`,
+    teaching:{concept:'',explanation:'',example:'',check_question:''},
+    suggested_actions:['Refresh 3017 page','Restart npm run dev','Send again'],
+    micro_task_plan:[
+      {label:'Confirm the URL is http://127.0.0.1:3017/nextstep-companion.html',duration_minutes:1,done:false},
+      {label:'Restart the local dev server if needed',duration_minutes:1,done:false},
+      {label:'Send the same message again',duration_minutes:1,done:false},
+    ],
+    start_button_label:'Retry Runtime',
+    check_in_message:'When the backend is reachable, I will use the real model response instead of local fallback.',
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:`Runtime unavailable while user asked about ${subject}.`,
+    fallback_used:true,
+    runtime_source:'api_unavailable',
+    trace:[{step:'client_api',status:'error',summary:'Browser could not reach /api/chat; no local tutor fallback was used.'}],
+  };
+}
+
+function normalizeClientResult(res){
+  const plan = Array.isArray(res.micro_task_plan) && res.micro_task_plan.length
+    ? res.micro_task_plan
+    : (Array.isArray(res.micro_task)?res.micro_task:[]).map((label,i)=>({label,duration_minutes:[2,5,8,2][i]||5,done:false}));
+  const rawAnswer = res.answer || res.reply || '';
+  const intent = res.intent || inferLocalIntent(rawAnswer, res.mode||'');
+  const answer = rawAnswer || "Let's start with one small step.";
+  return {
+    ...res,
+    intent,
+    answer,
+    reply:answer,
+    micro_task_plan:plan,
+    micro_task:plan.map(t=>t.label||String(t)),
+    suggested_actions:Array.isArray(res.suggested_actions)&&res.suggested_actions.length?res.suggested_actions:(intent==='teach_concept'?['Explain simpler','Give another example','Quiz me']:plan.slice(0,3).map(t=>t.label||String(t))),
+    teaching:res.teaching||{concept:'',explanation:'',example:'',check_question:''},
+    check_in_options:res.check_in_options||['Done','Partly done','I got stuck'],
+    fallback_used:Boolean(res.fallback_used),
+    runtime_source:res.runtime_source || (res.fallback_used ? 'fallback' : 'api_chat'),
+    trace:Array.isArray(res.trace)?res.trace:[],
+  };
+}
+
+function generateLocalChatResult(companion, msg, messages=[]) {
+  const scenario = companion.scenario;
   const lower = msg.toLowerCase();
   if (scenario === 'acg') return {
     reply:"I'm here with you. Let's keep this simple — tell me one thing you want to do next, and we'll start from there.",
