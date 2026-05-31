@@ -1677,6 +1677,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const endRef=useRef(null);
   const c=COMPANIONS[companion.scenario];
   const currentState=getCompanionStateInfo(typing?'thinking':lastResult?.companion_state);
+  const runtimeFallback=Boolean(lastResult?.fallback_used);
 
   const onVoice=useCallback(t=>setInput(t),[]);
   const voice=useVoiceInput(onVoice);
