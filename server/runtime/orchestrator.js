@@ -1,9 +1,9 @@
 const { USE_MOCK_AI } = require("../config");
 const { companionData } = require("../data");
-const { runMockEngine } = require("../fallback/mockEngine");
+const { detectIntent, extractConceptSubject, extractGoalSubject, runMockEngine } = require("../fallback/mockEngine");
 const { runOpenAI } = require("../openai/client");
 const { normalizeRuntimeResult, validateChatRequest } = require("../schemas");
-const { ensureSession, updateSessionAfterTurn } = require("../store/sessionStore");
+const { ensureSession, getSession, updateSessionAfterTurn } = require("../store/sessionStore");
 
 async function runTurn(body) {
   const parsed = validateChatRequest(body);
