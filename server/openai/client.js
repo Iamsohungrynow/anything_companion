@@ -1,7 +1,7 @@
-const { OPENAI_MODEL, OPENAI_TIMEOUT_MS } = require("../config");
+const { OPENAI_MODEL, OPENAI_SEARCH_MODEL, OPENAI_TIMEOUT_MS } = require("../config");
 const { runtimeResponseJsonSchema } = require("../schemas");
 
-async function runOpenAI({ input, session }) {
+async function runOpenAI({ input, session, repairContext }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not configured.");
