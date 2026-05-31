@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/frontend/static/nextstep-companion.html"
+    },
+    {
+      "source": "/nextstep-companion.html",
+      "destination": "/frontend/static/nextstep-companion.html"
+    },
+    {
+      "source": "/nextstep-companion-data.json",
+      "destination": "/frontend/static/nextstep-companion-data.json"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "/assets/:path*"
+    },
+    {
+      "source": "/models/:path*",
+      "destination": "/models/:path*"
+    }
+  ],
+  "functions": {
+    "api/**/*.mjs": {
+      "maxDuration": 30
+    }
+  }
+}

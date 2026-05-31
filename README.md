@@ -168,6 +168,63 @@ Runtime behavior:
 - `/api/tts` uses Fish Audio when `FISH_AUDIO_API_KEY` and `FISH_AUDIO_REFERENCE_ID` are configured.
 - Chat voice falls back to browser `speechSynthesis` when Fish Audio is unavailable.
 
+## Vercel Deployment
+
+This repo supports Vercel through thin API wrappers in `api/` and shared runtime handlers in `server/http/runtimeHandlers.js`.
+
+Vercel path:
+
+```text
+api/health.mjs                   -> GET /api/health
+api/scenarios.mjs                -> GET /api/scenarios
+api/session.mjs                  -> POST /api/session
+api/chat.mjs                     -> POST /api/chat
+api/tts.mjs                      -> POST /api/tts
+api/session/[id]/memory.mjs      -> GET /api/session/:id/memory
+api/session/[id]/reset.mjs       -> POST /api/session/:id/reset
+vercel.json                      -> static rewrites and function runtime config
+```
+
+The function wrappers use `.mjs` because this package remains `type: commonjs` for the local Node server.
+
+Static rewrites keep the existing demo URLs:
+
+```text
+/                              -> frontend/static/nextstep-companion.html
+/nextstep-companion.html        -> frontend/static/nextstep-companion.html
+/nextstep-companion-data.json   -> frontend/static/nextstep-companion-data.json
+/assets/*                      -> assets/*
+```
+
+Set these in the Vercel dashboard:
+
+```env
+OPENAI_API_KEY=your_key_here
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_SEARCH_MODEL=gpt-5.5
+USE_MOCK_AI=false
+```
+
+Optional voice env:
+
+```env
+FISH_AUDIO_API_KEY=your_fish_key
+FISH_AUDIO_REFERENCE_ID=your_reference_id
+```
+
+For Vercel custom domains, also set:
+
+```env
+ALLOWED_HOSTS=your-domain.example
+ALLOWED_ORIGINS=https://your-domain.example
+```
+
+Vercel preview/production URLs are auto-detected from Vercel's own environment variables when available.
+
+Important memory caveat:
+
+The current session store is in-memory. On Vercel Serverless Functions, memory can disappear between invocations or not be shared across function instances. This is acceptable for a short demo, but production memory should move to Vercel KV, Supabase Postgres, or Upstash Redis.
+
 ## Environment Variables
 
 See `.env.example` for the current local template.
@@ -203,6 +260,7 @@ This runs:
 
 ```powershell
 npm run test:agents
+npm run test:vercel
 npm run test:mart
 npm run test:api
 npm run test:d
