@@ -996,7 +996,7 @@ function PhotoToPseudo3DPreview({companion, imageUrl, size='md'}){
               <div className="relative" style={{transform:'translateZ(10px)'}}>
                 <div className="absolute inset-0 rounded-2xl" style={{boxShadow:`0 0 30px ${glow}`,filter:'blur(8px)',transform:'scale(1.05)'}}/>
                 <img src={imageUrl} alt="companion source" className="relative rounded-2xl object-cover shadow-2xl"
-                  style={{width:'120px',height:sizes.imgH,objectFit:'cover',border:'2px solid rgba(255,255,255,0.25)'}}/>
+                  style={{width:defaultAsset?'150px':'120px',height:defaultAsset?'150px':sizes.imgH,objectFit:'cover',border:'2px solid rgba(255,255,255,0.25)'}}/>
               </div>
             ):(
               <div style={{fontSize:'4rem',transform:'translateZ(14px)'}}>{companion.emoji}</div>
