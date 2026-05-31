@@ -55,11 +55,14 @@ async function runTurn(body) {
     }
   } else {
     fallbackUsed = true;
-    runtimeResult = runMockEngine(input, companionData);
+    runtimeResult = runMockEngine(input, companionData, session);
   }
+
+  runtimeResult = ensureVisibleTaskFormat(runtimeResult);
 
   runtimeResult.session_id = session.id;
   runtimeResult.fallback_used = fallbackUsed || runtimeResult.fallback_used;
+  runtimeResult.runtime_source = runtimeResult.fallback_used ? "mock" : "openai";
 
   const updatedSession = updateSessionAfterTurn(session, input, runtimeResult);
 
