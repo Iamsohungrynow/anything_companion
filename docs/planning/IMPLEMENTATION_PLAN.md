@@ -197,7 +197,7 @@ Display examples:
 Implementation anchors:
 
 - `MemoryResult`
-- `memory_schema` in `nextstep-companion-data.json`
+- `memory_schema` in `frontend/static/nextstep-companion-data.json`
 - `safeMemory` in `App`
 
 ### Page 5 - Display / Stage Mode
@@ -319,7 +319,7 @@ server/
     sessionStore.js
 ```
 
-The orchestration layer is currently modular inside `server/runtime/orchestrator.js`, with the subagent-style skills represented by deterministic sections in the prompt/fallback flow rather than separate files.
+The orchestration layer is currently modular inside `server/engines/runtime/orchestrator.js`, with the subagent-style skills represented by deterministic sections in the prompt/fallback flow rather than separate files.
 
 ## 7. API Endpoints
 
@@ -412,7 +412,7 @@ Because the repo is currently a single HTML file, do not start with a full rewri
 
 Phase 1:
 
-- keep `nextstep-companion.html`
+- keep `frontend/static/nextstep-companion.html` served at `/nextstep-companion.html`
 - add new fields to React state
 - extend `ImageUpload` into builder page
 - extend `TaskSupportPanel` with goal understanding, timer, check-in buttons, and trace
@@ -422,7 +422,7 @@ Phase 1:
 Phase 2:
 
 - add `server/`
-- move mock logic into `server/fallback/mockEngine.js`
+- keep mock logic isolated in `server/engines/mock/mockEngine.js`
 - make `generateChatResultAsync` call `/api/chat`
 
 Phase 3:

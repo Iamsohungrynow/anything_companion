@@ -90,10 +90,10 @@ Primary modules:
 
 - `server/index.js`
 - `server/schemas.js`
-- `server/runtime/orchestrator.js`
-- `server/openai/client.js`
+- `server/engines/runtime/orchestrator.js`
+- `server/engines/openai/client.js`
 - `server/store/sessionStore.js`
-- `server/fallback/mockEngine.js`
+- `server/engines/mock/mockEngine.js`
 
 Concrete tasks:
 
