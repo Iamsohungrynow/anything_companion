@@ -153,7 +153,7 @@ Expected behavior flow:
 ## File Structure
 
 ```
-A人/
+frontend/person-c/
 ├── ChatInterface.tsx (Enhanced with state reactions & timer)
 ├── App.tsx (Updated imports)
 ├── index.ts (Type definitions)

@@ -187,25 +187,25 @@ ChatInterface
 ## 📤 Files Person C Delivered
 
 **Enhanced**:
-- `A人/ChatInterface.tsx` - Main interaction hub
+- `frontend/person-c/ChatInterface.tsx` - Main interaction hub
 
 **New Components**:
-- `A人/components/VideoCompanionMode.tsx` - Emoji view mode
-- `A人/components/Pseudo3DPreview.tsx` - Avatar display
+- `frontend/person-c/components/VideoCompanionMode.tsx` - Emoji view mode
+- `frontend/person-c/components/Pseudo3DPreview.tsx` - Avatar display
 
 **New Hooks**:
-- `A人/hooks/useVoiceInput.ts` - Voice input wrapper
+- `frontend/person-c/hooks/useVoiceInput.ts` - Voice input wrapper
 
 **New Utilities**:
-- `A人/utils/voiceOutput.ts` - Text-to-speech engine
+- `frontend/person-c/utils/voiceOutput.ts` - Text-to-speech engine
 
 **Support Files**:
-- `A人/ImageUpload.tsx` - Image selection
-- `A人/CompanionCard.tsx` - Companion preview
-- `A人/generateCompanion.ts` - Companion profiles
+- `frontend/person-c/ImageUpload.tsx` - Image selection
+- `frontend/person-c/CompanionCard.tsx` - Companion preview
+- `frontend/person-c/generateCompanion.ts` - Companion profiles
 
 **Documentation**:
-- `A人/PERSON_C_COMPLETION.md` - Detailed completion report
+- `docs/deliverables/person-c/PERSON_C_COMPLETION.md` - Detailed completion report
 - `PERSON_C_FINAL_DELIVERABLES.md` - Final checklist
 
 ## 🚀 Ready For
