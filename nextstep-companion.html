@@ -411,13 +411,40 @@ function generateLocalChatResult(companion, msg, messages=[]) {
     memory_update:'User prefers warm, voice-based companion interaction.',
   };
   if (scenario === 'study') {
-    if (LOW_KW.some(k=>lower.includes(k))) return {
-      reply:"I can tell you're tired and stuck right now — that's completely okay. You don't need to finish everything tonight. I'll stay with you for just 10 minutes. Let's start with one tiny step together. ☕",
+    const intent = detectLocalIntent(msg);
+    const teachingSubject = extractConceptSubject(msg);
+    const continuationSubject = extractContinuationSubject(msg);
+    if(teachingSubject || (intent==='continue_context' && localActiveIntent==='teach_concept')){
+      const concept = teachingSubject || continuationSubject || localActiveSubject || 'this concept';
+      localActiveSubject = concept;
+      localActiveIntent = 'teach_concept';
+      return normalizeClientResult(buildLocalTeachingResult(companion, concept));
+    }
+    if(intent==='vague_help' && localActiveSubject){
+      localActiveIntent = 'vague_help';
+      return normalizeClientResult(buildLocalVagueHelpResult(companion, localActiveSubject));
+    }
+    const extractedSubject = extractGoalSubject(msg);
+    if(extractedSubject || continuationSubject) localActiveSubject = extractedSubject || continuationSubject;
+    const subject = extractedSubject || continuationSubject || localActiveSubject || 'this task';
+    const followUp = localActiveSubject && /\b(help me|why not|what should i do|next|continue|guide me|show me)\b/i.test(lower);
+    const hasGoal = hasActionableGoal(lower) || extractedSubject || continuationSubject || followUp;
+    const low = LOW_KW.some(k=>lower.includes(k));
+    if (intent === 'emotional_support') {
+      localActiveIntent = 'emotional_support';
+      return normalizeClientResult(buildLocalSupportResult(companion, subject));
+    }
+    if (hasGoal || intent === 'decompose_task' || intent === 'continue_context') {
+      localActiveIntent = intent === 'continue_context' ? (localActiveIntent || 'plan_task') : (intent === 'decompose_task' ? 'decompose_task' : 'plan_task');
+      return normalizeClientResult(buildLocalStepResult(companion, subject, localActiveIntent));
+    }
+    if (low) return {
+      reply:localToneReply(companion.tone, "I can tell starting feels heavy right now. We do not need to finish everything; we only need one visible first step."),
       detected_state:'Low motivation + difficulty starting', companion_state:'encouraging', mode:'Encourage Mode',
-      goal_understanding:"You want to prepare for your finance quiz, but the task feels too big and you're low on energy right now.",
-      micro_task:['Open your notes and find the first page','Review 3 key formulas — just read, no memorising','Try 1 practice question'],
-      start_button_label:'Start 10-min Sprint',
-      check_in_message:'Come back after 10 minutes. Even if you only did one step — that counts.',
+      goal_understanding:"You want to make progress, but the task feels too big right now.",
+      micro_task:['Open the material in front of you','Choose one small section','Work for five minutes and stop'],
+      start_button_label:'Start 5-min Sprint',
+      check_in_message:'Come back after five minutes. One opened page already counts.',
       check_in_options:['Done','Partly done','I got stuck'],
       memory_update:'This user starts better with short, gentle 10-minute sprints when feeling stuck.',
     };
