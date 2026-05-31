@@ -1897,11 +1897,13 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     setSubtitle(`You: ${userMessage}`); setShowSub(true);
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
     await new Promise(r=>setTimeout(r,600));
-    const res=generateChatResult(companion.scenario,userMessage);
-    const cMsg={id:`c-${Date.now()}`,role:'companion',content:res.reply,ts:Date.now()};
+    const res=await generateChatResult(companion,userMessage,'stage',messages);
+    const assistantText=getAssistantText(res);
+    console.info('[nextstep_render]', {build_marker:BUILD_MARKER, surface:'stage', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
+    const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
-    playReply(res.reply);
+    playReply(assistantText);
   };
 
   const [inputText,setInputText]=useState('');
