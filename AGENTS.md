@@ -25,7 +25,8 @@ The model is the brain. Local code provides context, routing hints, schema valid
 6. `server/engines/runtime/` contains orchestration and runtime guards.
 7. `server/tests/` contains executable contract and smoke tests.
 8. `assets/` contains committed visual/video companion assets.
-9. Do not add new docs or deliverables to the repo root unless a tool convention requires it.
+9. `api/` contains Vercel Serverless Function wrappers only. Keep these wrappers as `.mjs` while the package remains `type: commonjs`.
+10. Do not add new docs or deliverables to the repo root unless a tool convention requires it.
 
 ## Non-Negotiable Runtime Rules
 
@@ -39,6 +40,7 @@ The model is the brain. Local code provides context, routing hints, schema valid
 8. `Study Sprint Mode` is a behavior layer, not a fixed answer template.
 9. Never reintroduce generic all-purpose study templates such as "open the most relevant material", "name the first concrete part", "do one small example", or "mark the first blocker" as the main answer.
 10. For broad or unknown subjects, let the model infer a useful beginner path.
+11. Keep request-level logic in `server/http/runtimeHandlers.js`; `server/index.js` is local-only and Vercel functions must not import it.
 
 ## Frontend Rendering Rules
 
@@ -87,6 +89,7 @@ Run:
 
 ```bash
 npm run test:agents
+npm run test:vercel
 npm run test:mart
 npm run test:api
 npm run test:d
