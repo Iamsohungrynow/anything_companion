@@ -2161,19 +2161,30 @@ function App(){
     setStep('upload');
   };
 
-  const onGenerate=(imageUrl,imgBase64)=>{
+  const onGenerate=(imageUrl,imgBase64,defaultMeta)=>{
     setSelectedImageUrl(imageUrl);
     setSelectedImagePreview(imgBase64);
+    setSelectedDefaultMeta(defaultMeta||null);
     setStep('progress');
   };
 
   const onProgressDone=()=>{
-    const displayImage=selectedImageUrl||selectedImagePreview||null;
+    runtimeSessionId=null;
+    localActiveSubject='';
+    localActiveIntent='general_chat';
+    const defaultProfile = scenario==='study' && selectedDefaultMeta
+      ? DEFAULT_OBJECT_COMPANIONS[selectedDefaultMeta.id] || {}
+      : {};
+    const defaultAsset=selectedDefaultMeta?.assetUrl||defaultProfile.assetUrl||null;
+    const displayImage=selectedImageUrl||selectedImagePreview||defaultAsset||null;
     const profile={
       ...COMPANIONS[scenario],
+      ...defaultProfile,
       sourceImageUrl:displayImage,
       modelAssetUrl:scenario==='acg'?ACG_MODEL_PATH:null,
-      visualMode:scenario==='acg'?'live2d':(displayImage?'uploaded-image':'pseudo-3d'),
+      visualMode:scenario==='acg'?'live2d':(selectedImageUrl||selectedImagePreview?'uploaded-image':(defaultAsset?'default-companion-art':'pseudo-3d')),
+      default_object_id:selectedDefaultMeta?.id||'',
+      default_object_label:selectedDefaultMeta?.label||defaultProfile.default_object_label||'',
       // Stamp setup profile onto companion
       ...(setupProfile?{tone:setupProfile.tone,use_case:setupProfile.use_case,role:setupProfile.role}:{}),
     };
