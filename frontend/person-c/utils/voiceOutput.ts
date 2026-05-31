@@ -211,7 +211,7 @@ export async function speakText(text: string, scenario: Scenario, onEnd?: () => 
     };
     source.start(0);
   } catch {
-    onEnd?.();
+    speakBrowserText(spokenText, scenario, onEnd, voiceWaits);
   }
 }
 
