@@ -7,10 +7,11 @@
 
 ## Before You Start (Setup Checklist)
 
-- [ ] Browser open at `http://localhost:5173` (or deployed URL), on the homepage
+- [ ] Browser open at `http://127.0.0.1:3000` (or deployed URL), on the homepage
+- [ ] Backup tab preloaded at `http://127.0.0.1:3000/?runtime=local`
 - [ ] Screen mirrored or projected
 - [ ] Known-good input ready to type: **"I have a finance quiz but I am tired and stuck."**
-- [ ] Fallback: mock engine active — no internet needed for the full demo path
+- [ ] Fallback: `?runtime=local` backup tab active — no API key needed for the full demo path
 
 ---
 
