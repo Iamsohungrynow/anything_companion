@@ -1755,6 +1755,11 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
             </button>
           </div>
         </div>
+        {runtimeFallback&&(
+          <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100">
+            Backend AI runtime unavailable. This reply is marked fallback and is not pretending to be GPT tutoring.
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-72 max-h-96 pr-1">
