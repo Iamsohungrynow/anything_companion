@@ -1437,7 +1437,8 @@ function ImageUpload({scenario,onGenerate,onBack}){
   const go=()=>{
     // Pass the object URL (stable) for use throughout the app, or null for default
     const imageUrl = rawFile ? URL.createObjectURL(rawFile) : null;
-    onGenerate(imageUrl, img);  // imageUrl = objectURL (for display), img = base64 (for preview)
+    const defaultMeta = defId ? meta.defaults.find(d=>d.id===defId) : null;
+    onGenerate(imageUrl, img, defaultMeta);  // imageUrl = objectURL (for display), img = base64 (for preview)
   };
 
   const sel=img!==null||defId!==null;
