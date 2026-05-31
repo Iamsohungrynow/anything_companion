@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>NextStep Companion</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Live2D via pixi-live2d-display (Cubism4 bundle) -->
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.9/dist/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
+  <!-- Live2D is loaded only when available locally; study chat should not preload external runtimes. -->
   <style>
     body{
       background:linear-gradient(135deg,#0f0c29 0%,#302b63 40%,#24243e 100%);
@@ -295,33 +293,25 @@ function getSprintMinutes(result){
 
 async function generateChatResult(companion, msg, channel='text', messages=[]) {
   try {
-    const res = await fetch(CHAT_API_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        session_id:runtimeSessionId,
-        scenario:companion.scenario,
-        message:msg,
-        channel,
-        tone:companion.tone,
-        role:companion.role,
-        use_case:companion.use_case,
-        companion,
-        image_url:companion.sourceImageUrl,
-        image_metadata:{
-          visualMode:companion.visualMode,
-          default_object_label:companion.default_object_label||'',
-        },
-        history:messages.slice(-6).map(m=>({
-          role:m.role==='companion'?'assistant':'user',
-          content:m.content,
-        })),
-      }),
+    const normalized = await requestRuntimeTurn({
+      session_id:runtimeSessionId,
+      scenario:companion.scenario,
+      message:msg,
+      channel,
+      tone:companion.tone,
+      role:companion.role,
+      use_case:companion.use_case,
+      companion,
+      image_url:companion.sourceImageUrl,
+      image_metadata:{
+        visualMode:companion.visualMode,
+        default_object_label:companion.default_object_label||'',
+      },
+      history:messages.slice(-6).map(m=>({
+        role:m.role==='companion'?'assistant':'user',
+        content:m.content,
+      })),
     });
-    if (!res.ok) throw new Error(`chat ${res.status}`);
-    const data = await res.json();
-    runtimeSessionId = data.session_id || runtimeSessionId;
-    const normalized = normalizeClientResult(data);
     logChatRuntime({...normalized, assistantText:getAssistantText(normalized)});
     return normalized;
   } catch (err) {
@@ -345,6 +335,18 @@ async function generateChatResult(companion, msg, channel='text', messages=[]) {
     logChatRuntime({...markedFallback, assistantText:getAssistantText(markedFallback)});
     return markedFallback;
   }
+}
+
+async function requestRuntimeTurn(payload){
+  const res = await fetch('/api/chat', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`chat ${res.status}`);
+  const data = await res.json();
+  runtimeSessionId = data.session_id || runtimeSessionId;
+  return normalizeClientResult(data);
 }
 
 function buildRuntimeUnavailableResult(companion, msg){
@@ -782,7 +784,7 @@ function localToneReply(tone, text){
 const ttsSup = typeof window!=='undefined' && 'speechSynthesis' in window;
 function speakText(text,onEnd){
   try{
-    if(!ttsSup) return;
+    if(!ttsSup){if(onEnd) onEnd();return;}
     window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
     u.rate=0.92; u.pitch=1.08; u.volume=1;
@@ -1123,7 +1125,7 @@ function AdaptiveModePanel({result,scenario,typing}){
 function Row({label,children}){return(<div className="flex items-start gap-2"><span className="text-xs text-white/40 font-semibold w-28 flex-shrink-0 pt-0.5">{label}</span><div className="flex items-center gap-1.5 flex-wrap">{children}</div></div>);}
 
 /* Micro-task Panel */
-function MicroTaskPanel({result}){
+function MicroTaskPanel({result,onCheckIn}){
   const [checked,setChecked]=useState({});
   const [sprint,setSprint]=useState(false);
   const [showCheckIn,setShowCheckIn]=useState(false);
@@ -1204,7 +1206,7 @@ function MicroTaskPanel({result}){
           ):(
             <div className="grid grid-cols-3 gap-2">
               {(result.check_in_options||['Done','Partly done','I got stuck']).map(opt=>(
-                <button key={opt} onClick={()=>setCheckIn(opt)}
+                <button key={opt} onClick={()=>{setCheckIn(opt); if(onCheckIn) onCheckIn(opt);}}
                   className="rounded-lg border border-blue-300/20 bg-white/5 px-2 py-2 text-xs font-bold text-blue-100 hover:bg-blue-400/10">
                   {opt}
                 </button>
@@ -1217,6 +1219,14 @@ function MicroTaskPanel({result}){
         <div className="bg-violet-500/10 border border-violet-400/20 rounded-xl p-3">
           <p className="text-xs font-bold text-violet-300/70 uppercase tracking-widest mb-1">🧠 Memory Updated</p>
           <p className="text-sm text-violet-200/80 font-medium leading-relaxed italic">"{result.memory_update}"</p>
+        </div>
+      )}
+      {Array.isArray(result.trace)&&result.trace.length>0&&(
+        <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+          <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-2">Runtime Trace</p>
+          {result.trace.slice(0,3).map((item,i)=>(
+            <p key={i} className="text-xs text-white/45 leading-relaxed">{item.step}: {item.status} - {item.summary}</p>
+          ))}
         </div>
       )}
     </div>
@@ -1710,6 +1720,26 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
     onResult(res,userMessage);
   };
 
+  const handleCheckIn=async option=>{
+    const recentGoal=[...messages].reverse().find(message=>message.role==='user')?.content||`Sprint check-in: ${option}`;
+    try{
+      const res=await requestRuntimeTurn({
+        session_id:runtimeSessionId,
+        scenario:companion.scenario,
+        message:recentGoal,
+        channel:'text',
+        tone:companion.tone,
+        role:companion.role,
+        use_case:companion.use_case,
+        companion,
+        check_in_result:option,
+      });
+      onResult(res,recentGoal);
+    }catch(err){
+      console.warn('Check-in sync unavailable:',err);
+    }
+  };
+
   const doSpeak=(id,text)=>{
     if(speakingId===id){stopSpeaking();setSpeakingId(null);}
     else{speakText(text,()=>setSpeakingId(null));setSpeakingId(id);}
@@ -1841,7 +1871,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
       {/* Right sidebar */}
       <div className="lg:w-80 xl:w-96 px-4 pb-6 lg:pt-6 space-y-4 flex-shrink-0">
         <AdaptiveModePanel result={lastResult} scenario={companion.scenario} typing={typing}/>
-        {lastResult&&<div className="anim-slide-up"><MicroTaskPanel result={lastResult}/></div>}
+        {lastResult&&<div className="anim-slide-up"><MicroTaskPanel result={lastResult} onCheckIn={handleCheckIn}/></div>}
         <div className="glass rounded-2xl p-4 text-center">
           <p className="text-xs font-bold text-white/30 uppercase tracking-widest mb-2">Multimodal Interaction</p>
           <div className="flex justify-center gap-3 text-sm">
