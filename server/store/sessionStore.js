@@ -38,6 +38,9 @@ function createInitialMemory({ companion, tone, use_case, now }) {
     completed_micro_tasks: [],
     check_in_history: [],
     latest_memory_update: "First session - building baseline.",
+    active_plan: [],
+    last_reply: "",
+    turn_count: 0,
     tone: tone || "",
     use_case: use_case || "",
     updated_at: now,
@@ -93,6 +96,10 @@ function updateSessionAfterTurn(session, input, result) {
     });
   }
 
+  if (input.companion) session.companion = input.companion;
+  if (input.tone) session.tone = input.tone;
+  if (input.use_case) session.use_case = input.use_case;
+
   session.memory = {
     ...session.memory,
     current_companion: input.companion?.name || session.memory.current_companion,
@@ -103,6 +110,9 @@ function updateSessionAfterTurn(session, input, result) {
     completed_micro_tasks: completed.slice(0, 10),
     check_in_history: checkIns.slice(0, 10),
     latest_memory_update: result.memory_update,
+    active_plan: Array.isArray(result.micro_task) ? result.micro_task.slice(0, 4) : [],
+    last_reply: result.reply || "",
+    turn_count: Number(session.memory.turn_count || 0) + 1,
     updated_at: now,
     last_goal: input.message,
     recent_mode: result.mode,

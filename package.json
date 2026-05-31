@@ -6,9 +6,13 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "test:api": "node server/smoke-test.js",
-    "test:mart": "node server/mart-contract-test.js",
-    "test:openai": "node server/live-openai-test.js"
+    "test:api": "node server/tests/smoke-test.js",
+    "test:agents": "node server/tests/agent-guide-test.js",
+    "test:all": "npm run test:agents && npm run test:vercel && npm run test:mart && npm run test:api && npm run test:d",
+    "test:d": "node server/tests/d-reliability-test.js",
+    "test:mart": "node server/tests/mart-contract-test.js",
+    "test:openai": "node server/tests/live-openai-test.js",
+    "test:vercel": "node server/tests/vercel-adapter-test.js"
   },
   "engines": {
     "node": ">=18"
