@@ -2,11 +2,14 @@ const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const packageJson = require("../package.json");
-const { ALLOWED_HOSTS, ALLOWED_ORIGINS, HTML_FILE, HOST, PORT, ROOT_DIR, USE_MOCK_AI, OPENAI_MODEL, MAX_SESSIONS, SESSION_TTL_MS } = require("./config");
+const { ALLOWED_HOSTS, ALLOWED_ORIGINS, HTML_FILE, HOST, PORT, ROOT_DIR, USE_MOCK_AI, OPENAI_MODEL, FISH_AUDIO_API_KEY, FISH_AUDIO_REFERENCE_ID, FISH_AUDIO_TIMEOUT_MS, MAX_SESSIONS, SESSION_TTL_MS } = require("./config");
 const { companionData } = require("./data");
 const { runTurn } = require("./runtime/orchestrator");
 const { normalizeScenario } = require("./schemas");
 const { createSession, getSession, resetSession } = require("./store/sessionStore");
+
+const ttsCache = new Map();
+const MAX_TTS_CACHE_ENTRIES = 40;
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -34,6 +37,7 @@ const server = http.createServer(async (req, res) => {
         host: HOST,
         allowed_hosts: ALLOWED_HOSTS,
         openai_configured: Boolean(process.env.OPENAI_API_KEY),
+        fish_audio_configured: Boolean(FISH_AUDIO_API_KEY && FISH_AUDIO_REFERENCE_ID),
         mock_forced: USE_MOCK_AI,
         model: OPENAI_MODEL,
         max_sessions: MAX_SESSIONS,
@@ -84,6 +88,12 @@ const server = http.createServer(async (req, res) => {
         })
       );
       sendJson(res, 200, result);
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/tts") {
+      const body = await readJson(req);
+      await proxyFishAudioTts(body, res);
       return;
     }
 
@@ -163,6 +173,82 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload, null, 2));
 }
 
+async function proxyFishAudioTts(body, res) {
+  const text = String(body?.text || "").trim();
+  if (!text) {
+    sendJson(res, 400, { ok: false, error: "text is required." });
+    return;
+  }
+
+  if (!FISH_AUDIO_API_KEY || !FISH_AUDIO_REFERENCE_ID) {
+    sendJson(res, 503, { ok: false, error: "Fish Audio TTS is not configured." });
+    return;
+  }
+
+  const cacheKey = text;
+  const cached = ttsCache.get(cacheKey);
+  if (cached) {
+    res.writeHead(200, {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "private, max-age=300",
+      "Content-Length": cached.length,
+      "X-TTS-Cache": "HIT",
+    });
+    res.end(cached);
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FISH_AUDIO_TIMEOUT_MS);
+
+  try {
+    const fishResponse = await fetch("https://api.fish.audio/v1/tts", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${FISH_AUDIO_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        reference_id: FISH_AUDIO_REFERENCE_ID,
+        format: "mp3",
+        latency: "normal",
+      }),
+    });
+
+    if (!fishResponse.ok) {
+      const errorText = await fishResponse.text().catch(() => "");
+      sendJson(res, fishResponse.status, {
+        ok: false,
+        error: "Fish Audio TTS request failed.",
+        detail: errorText.slice(0, 300),
+      });
+      return;
+    }
+
+    const audioBuffer = Buffer.from(await fishResponse.arrayBuffer());
+    ttsCache.set(cacheKey, audioBuffer);
+    if (ttsCache.size > MAX_TTS_CACHE_ENTRIES) {
+      ttsCache.delete(ttsCache.keys().next().value);
+    }
+    res.writeHead(200, {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": "private, max-age=300",
+      "Content-Length": audioBuffer.length,
+      "X-TTS-Cache": "MISS",
+    });
+    res.end(audioBuffer);
+  } catch (error) {
+    sendJson(res, error.name === "AbortError" ? 504 : 502, {
+      ok: false,
+      error: error.name === "AbortError" ? "Fish Audio TTS timed out." : "Fish Audio TTS proxy failed.",
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function readJson(req) {
   return new Promise((resolve, reject) => {
     const contentType = String(req.headers["content-type"] || "");
@@ -219,7 +305,7 @@ function serveStatic(urlPath, method, res) {
   }
 
   if (urlPath.startsWith("/assets/")) {
-    serveDirectoryFile(urlPath, "assets", res, isHead);
+    serveSafeStatic(ROOT_DIR, "assets", urlPath, res, isHead);
     return;
   }
 
@@ -228,10 +314,10 @@ function serveStatic(urlPath, method, res) {
     return;
   }
 
-  serveDirectoryFile(urlPath, "models", res, isHead);
+  serveSafeStatic(ROOT_DIR, "models", urlPath, res, isHead);
 }
 
-function serveDirectoryFile(urlPath, publicRootName, res, isHead) {
+function serveSafeStatic(rootDir, publicPrefix, urlPath, res, isHead) {
   let decodedPath;
   try {
     decodedPath = decodeURIComponent(urlPath);
@@ -240,10 +326,10 @@ function serveDirectoryFile(urlPath, publicRootName, res, isHead) {
     return;
   }
 
-  const publicRoot = path.resolve(ROOT_DIR, publicRootName);
-  const publicPath = decodedPath.replace(new RegExp(`^/${publicRootName}[\\\\/]`), "");
-  const fullPath = path.resolve(publicRoot, publicPath);
-  const relative = path.relative(publicRoot, fullPath);
+  const staticRoot = path.resolve(rootDir, publicPrefix);
+  const staticPath = decodedPath.replace(new RegExp(`^/${publicPrefix}[\\\\/]`), "");
+  const fullPath = path.resolve(staticRoot, staticPath);
+  const relative = path.relative(staticRoot, fullPath);
   if (relative.startsWith("..") || path.isAbsolute(relative) || !fs.existsSync(fullPath) || fs.statSync(fullPath).isDirectory()) {
     sendJson(res, 404, { ok: false, error: "Not found." });
     return;
@@ -272,6 +358,9 @@ function contentType(filePath) {
   if (ext === ".json") return "application/json; charset=utf-8";
   if (ext === ".css") return "text/css; charset=utf-8";
   if (ext === ".html") return "text/html; charset=utf-8";
+  if (ext === ".mp4" || ext === ".m4v") return "video/mp4";
+  if (ext === ".webm") return "video/webm";
+  if (ext === ".mov") return "video/quicktime";
   if (ext === ".png") return "image/png";
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
   if (ext === ".svg") return "image/svg+xml";
