@@ -959,6 +959,7 @@ function PhotoToPseudo3DPreview({companion, imageUrl, size='md'}){
   const [hov,setHov]=useState(false);
   const c=COMPANIONS[companion.scenario];
   const hasImage=!!imageUrl;
+  const defaultAsset=companion.visualMode==='default-companion-art';
   const sizes={sm:{h:'h-48',imgH:'160px'},md:{h:'h-64',imgH:'210px'},lg:{h:'h-80',imgH:'270px'}}[size];
 
   const cardStyle={
