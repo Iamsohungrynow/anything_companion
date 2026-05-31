@@ -5,8 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-const root = path.resolve(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "nextstep-companion.html"), "utf8");
+const root = path.resolve(__dirname, "..", "..");
+const html = fs.readFileSync(path.join(root, "frontend", "static", "nextstep-companion.html"), "utf8");
 const renderYamlPath = path.join(root, "render.yaml");
 const packageJson = require(path.join(root, "package.json"));
 
@@ -70,7 +70,7 @@ function testRenderDeploymentContract() {
 }
 
 function testPackageScript() {
-  assert.equal(packageJson.scripts["test:d"], "node server/d-reliability-test.js");
+  assert.equal(packageJson.scripts["test:d"], "node server/tests/d-reliability-test.js");
 }
 
 testFrontendRuntimeContract();

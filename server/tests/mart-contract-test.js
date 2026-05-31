@@ -5,8 +5,8 @@ const http = require("http");
 const net = require("net");
 const os = require("os");
 const path = require("path");
-const { loadDotEnv } = require("./env");
-const { normalizeRuntimeResult, normalizeScenario } = require("./schemas");
+const { loadDotEnv } = require("../env");
+const { normalizeRuntimeResult, normalizeScenario } = require("../schemas");
 
 const PORT = Number(process.env.PORT || randomPort());
 let baseUrl = `http://127.0.0.1:${PORT}`;
