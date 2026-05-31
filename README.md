@@ -114,6 +114,41 @@ Non-negotiable rules:
 
 ## Quick Start
 
+## Live Deployment
+
+Production demo:
+
+```text
+https://compagnon-eveil.vercel.app/
+```
+
+Health check:
+
+```text
+https://compagnon-eveil.vercel.app/api/health
+```
+
+Expected production health:
+
+```json
+{
+  "ok": true,
+  "service": "nextstep-runtime",
+  "openai_configured": true,
+  "mock_forced": false
+}
+```
+
+Current production branch:
+
+```text
+main
+```
+
+Vercel `*.vercel.app` hosts are accepted automatically. If a deployment returns `Host not allowed`, remove stale local-only `ALLOWED_HOSTS` values from the Vercel dashboard or set it to the actual custom domain.
+
+## Local Quick Start
+
 Copy the environment template:
 
 ```powershell
