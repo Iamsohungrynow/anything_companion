@@ -470,6 +470,312 @@ function generateLocalChatResult(companion, msg, messages=[]) {
   };
 }
 
+function buildLocalSupportResult(companion, subject){
+  const hasSubject=subject && subject!=='this task';
+  const subjectLine=hasSubject?` We will keep ${subject} small enough to touch, not solve all at once.`:' We will choose one tiny next action only if you want it.';
+  const answer=localToneReply(companion.tone,`You sound tired, so we will not force a full session. First we lower the pressure, then choose one tiny next action.${subjectLine}`);
+  const microTaskPlan=hasSubject?[
+      {label:'Take one breath and lower your shoulders',duration_minutes:1,done:false},
+      {label:`Open one ${subject} note, slide, practice page, or checklist`,duration_minutes:2,done:false},
+      {label:`Pick only the easiest visible part of ${subject}`,duration_minutes:2,done:false},
+      {label:`Tell me the first blocker in ${subject}`,duration_minutes:2,done:false},
+    ]:[
+      {label:'Take one breath and put the task in front of you',duration_minutes:1,done:false},
+      {label:'Choose the smallest visible action, not the whole task',duration_minutes:2,done:false},
+      {label:'Tell me the task name when you are ready',duration_minutes:1,done:false},
+    ];
+  return {
+    intent:'emotional_support',
+    answer,
+    reply:answer,
+    detected_state:'Tired or low-energy',
+    companion_state:'concerned',
+    mode:'Encourage Mode',
+    goal_understanding:hasSubject?`You are tired while thinking about ${subject}; support comes before task pressure.`:'You are tired right now, so support comes before task pressure.',
+    teaching:{concept:'',explanation:'',example:'',check_question:''},
+    suggested_actions:['Take a breath','Pick a 2-minute start','Ask for a smaller step'],
+    micro_task_plan:microTaskPlan,
+    start_button_label:'Start 3-min Gentle Reset',
+    check_in_message:hasSubject?`After this reset, tell me whether ${subject} feels ready for one tiny step.`:'After three minutes, tell me if you want a tiny plan or just company.',
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:hasSubject?`User felt tired while thinking about ${subject}; support first, then one tiny subject-specific step.`:'User felt tired; respond with emotional support before planning.',
+  };
+}
+
+function buildLocalStepResult(companion, subject, intent){
+  if(!hasLocalSubjectFallback(subject)) return buildLocalEmergencyFallbackResult(companion, subject, intent||'plan_task');
+  const continuation=intent==='continue_context';
+  const plan=buildLocalStudyPlan(subject,false);
+  const visible=plan.map((task,i)=>`${i+1}. ${task.label}`).join('\n');
+  const answer=localToneReply(companion.tone,`${continuation?`Let's continue with ${subject}.`:`Let's make ${subject} practical.`}\n\n${visible}`);
+  return {
+    intent:continuation?'continue_context':(intent||'plan_task'),
+    answer,
+    reply:answer,
+    detected_state:continuation?`Follow-up task: ${subject}`:`Task decomposition request: ${subject}`,
+    companion_state:'focused',
+    mode:'Study Sprint Mode',
+    goal_understanding:`You want practical help with ${subject}; I should give concrete steps and stay with you through the first action.`,
+    teaching:{concept:'',explanation:'',example:'',check_question:''},
+    suggested_actions:['Start step 1','Explain the first concept','Give me an example','Quiz me after'],
+    micro_task_plan:plan,
+    start_button_label:'Start 10-min Guided Sprint',
+    check_in_message:`After step 1, tell me what part of ${subject} feels clear or confusing.`,
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:`User is working on ${subject}; guide with concrete steps, examples, and check-ins.`,
+  };
+}
+
+function buildLocalVagueHelpResult(companion, subject){
+  if(!hasLocalSubjectFallback(subject)) return buildLocalEmergencyFallbackResult(companion, subject, 'vague_help');
+  const teaching=buildLocalFirstStepTeaching(subject);
+  const answer=localToneReply(companion.tone,`Yes. Let's do the first step together for ${subject}, not repeat the plan.\n\n${teaching.explanation}\n\nTiny example: ${teaching.example}\n\nYour move: ${teaching.check_question}`);
+  return {
+    intent:'vague_help',
+    answer,
+    reply:answer,
+    detected_state:`Guided help request: ${subject}`,
+    companion_state:'thinking',
+    mode:'Study Companion Mode',
+    goal_understanding:`You asked for help continuing ${subject}; I should start the first useful step with you instead of restating the plan.`,
+    teaching,
+    suggested_actions:['Do this example with me','Explain simpler','Quiz me once','Make next step smaller'],
+    micro_task_plan:[
+      {label:`Read the tiny ${subject} explanation in the reply`,duration_minutes:2,done:false},
+      {label:`Try the tiny ${subject} example or prompt`,duration_minutes:4,done:false},
+      {label:`Reply with the word, symbol, or step that feels unclear`,duration_minutes:2,done:false},
+    ],
+    start_button_label:'Start 8-min Guided Help',
+    check_in_message:`Tell me which part of ${subject} still feels unclear, and I will adjust the next step.`,
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:`User asked for direct help with ${subject}; continue by teaching or demonstrating, not repeating the plan.`,
+  };
+}
+
+function buildLocalTeachingResult(companion, concept){
+  if(!hasLocalSubjectFallback(concept)) return buildLocalEmergencyFallbackResult(companion, concept, 'teach_concept');
+  const teaching = buildLocalTeaching(concept);
+  const answer = localToneReply(companion.tone, `${teaching.explanation}\n\nExample: ${teaching.example}\n\nTiny check: ${teaching.check_question}`);
+  return {
+    intent:'teach_concept',
+    answer,
+    reply:answer,
+    detected_state:`Concept explanation request: ${concept}`,
+    companion_state:'thinking',
+    mode:'Study Companion Mode',
+    goal_understanding:`You asked to understand ${concept}, so I should teach the concept before making a sprint plan.`,
+    teaching,
+    suggested_actions:['Explain simpler','Give another example','Quiz me'],
+    micro_task_plan:[
+      {label:`Read the ${concept} explanation once`,duration_minutes:2,done:false},
+      {label:`Try the tiny check question for ${concept}`,duration_minutes:3,done:false},
+      {label:`Tell ${companion.name} which part is unclear`,duration_minutes:2,done:false},
+    ],
+    start_button_label:'Start 7-min Concept Check',
+    check_in_message:`After this, tell me whether ${concept} feels clearer.`,
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:`User asked for a concept explanation about ${concept}.`,
+  };
+}
+
+function buildLocalEmergencyFallbackResult(companion, subject, intent){
+  const answer=`I am having trouble reaching the AI engine right now, so I will not pretend to tutor ${subject} from a template. Write one thing you already know about ${subject} and one question that feels confusing, then retry when the AI runtime is connected.`;
+  return {
+    intent,
+    answer,
+    reply:answer,
+    detected_state:`AI fallback for ${subject}`,
+    companion_state:'concerned',
+    mode:(intent==='vague_help'||intent==='teach_concept')?'Study Companion Mode':'Study Sprint Mode',
+    goal_understanding:`You want help with ${subject}, but local fallback cannot provide reliable subject-specific tutoring.`,
+    teaching:{concept:'',explanation:'',example:'',check_question:''},
+    suggested_actions:['Retry AI response','Tell me what is confusing','Start smaller'],
+    micro_task_plan:[
+      {label:`Write one thing you already know about ${subject}`,duration_minutes:2,done:false},
+      {label:`Write one question about ${subject}`,duration_minutes:2,done:false},
+    ],
+    start_button_label:'Start 4-min Fallback Reset',
+    check_in_message:'If the AI runtime is back, ask again and I will generate a real subject-specific explanation.',
+    check_in_options:['Done','Partly done','I got stuck'],
+    memory_update:`Fallback used for ${subject}; avoid pretending local templates are subject expertise.`,
+    fallback_used:true,
+    runtime_source:'local_fallback',
+  };
+}
+
+function hasLocalSubjectFallback(subject){
+  const lower=String(subject||'').toLowerCase();
+  return ['algebra','simultaneous equation','quantum','essay','report','internship','application','room','clean','quiz','exam'].some(k=>lower.includes(k));
+}
+
+function buildLocalTeaching(concept){
+  if(concept.toLowerCase().includes('algebra')){
+    return {
+      concept:'algebra',
+      explanation:'Algebra is math where letters or symbols stand for numbers we do not know yet. The goal is usually to find the value that makes a statement true.',
+      example:'In x + 3 = 7, x is the unknown number. Since 4 + 3 = 7, x = 4.',
+      check_question:'For x + 2 = 6, what is x?',
+    };
+  }
+  return {
+    concept,
+    explanation:`${concept} is the idea you are trying to understand. Start by asking what it means, what problem it solves, and what a simple example looks like.`,
+    example:`Take one small ${concept} example from your notes and label what each symbol or term means before solving it.`,
+    check_question:`Can you write one sentence explaining what ${concept} is used for?`,
+  };
+}
+
+function buildLocalFirstStepTeaching(subject){
+  const lower=String(subject||'').toLowerCase();
+  if(lower.includes('algebra')){
+    return {
+      concept:'algebra',
+      explanation:'Algebra starts by using a letter as an unknown number, then using the equation to discover what that letter must be.',
+      example:'If x + 3 = 7, the question is: what number plus 3 gives 7? The answer is x = 4.',
+      check_question:'Try this one: x + 2 = 6. What should x be?',
+    };
+  }
+  if(lower.includes('simultaneous equation')){
+    return {
+      concept:'simultaneous equations',
+      explanation:'A simultaneous-equation problem gives two equations that must be true at the same time. Your job is to find values that satisfy both.',
+      example:'If x + y = 5 and x - y = 1, adding them gives 2x = 6, so x = 3. Then y = 2.',
+      check_question:'Which method do you want to try first: substitution or elimination?',
+    };
+  }
+  if(lower.includes('quantum')){
+    return {
+      concept:'quantum mechanics',
+      explanation:'A tiny starting point for quantum mechanics is probability: it often predicts the chance of an outcome instead of one fixed classical result.',
+      example:'A wavefunction is like a probability description. It helps calculate where a particle may be found when measured.',
+      check_question:'Which word should we unpack first: wavefunction, measurement, or probability?',
+    };
+  }
+  return {
+    concept:subject,
+    explanation:`For ${subject}, the first useful step is to define what you are trying to do in one sentence, then work through one tiny example or visible action.`,
+    example:`Write: "Right now, ${subject} means I need to complete one small visible action." Then name that action.`,
+    check_question:`What is the smallest visible part of ${subject} we can do together right now?`,
+  };
+}
+
+function inferLocalIntent(reply, mode){
+  const lower=String(reply||'').toLowerCase();
+  if(/\b(concept|explain|definition|example)\b/.test(lower)) return 'teach_concept';
+  if(mode==='Study Companion Mode') return 'vague_help';
+  if(mode==='Study Sprint Mode'||mode==='Focus Mode') return 'plan_task';
+  if(mode==='Encourage Mode') return 'emotional_support';
+  if(mode==='Routine Check-in Mode'||mode==='Routine Mode') return 'routine';
+  if(mode==='Check-in Mode') return 'check_in';
+  return 'general_chat';
+}
+
+function hasActionableGoal(lower){
+  return /\b(study|learn|review|prepare|practice|understand|finish|write|work on|start|begin|quiz|exam|homework|assignment|essay|report)\b/i.test(lower);
+}
+
+function detectLocalIntent(msg){
+  const lower=String(msg||'').toLowerCase();
+  if(extractContinuationSubject(msg)) return 'continue_context';
+  if(/\b(concept|explain|what is|what are|teach me|define|meaning of|give concept)\b/i.test(lower)) return 'teach_concept';
+  if(/\b(concrete step|concrete steps|first step|steps to|step by step|break down|decompose|plan for|how do i start|how to start|show me how to)\b/i.test(lower)) return 'decompose_task';
+  if(/\b(quiz me|test me|question me)\b/i.test(lower)) return 'quiz';
+  if(/\b(help me|i need help|why not|what should i do|guide me|show me|continue)\b/i.test(lower) && !extractGoalSubject(msg)) return 'vague_help';
+  if(LOW_KW.some(k=>lower.includes(k))) return 'emotional_support';
+  if(hasActionableGoal(lower)) return 'plan_task';
+  return 'general_chat';
+}
+
+function extractGoalSubject(msg){
+  const text=String(msg||'').trim();
+  const patterns=[
+    /\b(?:i\s+have|i\s+got|i've\s+got)\s+(?:a|an|the|my)?\s*(.+?)(?:\s+(?:but|and)\s+i\b|$)/i,
+    /\b(?:stuck\s+on|stuck\s+with|confused\s+by|confused\s+about|struggling\s+with)\s+(.+)/i,
+    /\b(?:i\s+need\s+to|i\s+want\s+to|i\s+have\s+to|i\s+should)\s+(?:study|learn|review|prepare\s+for|practice|understand|finish|start|work\s+on)\s+(.+)/i,
+    /\b(?:study|learn|review|prepare\s+for|practice|understand|finish|start|work\s+on)\s+(.+)/i,
+    /\b(?:quiz|exam|homework|assignment|essay|report)\s+(?:on|about|for)\s+(.+)/i,
+  ];
+  for(const p of patterns){
+    const m=text.match(p);
+    const s=cleanSubject(m&&m[1]);
+    if(s) return s;
+  }
+  return '';
+}
+
+function extractContinuationSubject(msg){
+  const m=String(msg||'').trim().match(/^(?:and|also|then|next)\s+(.{2,80})$/i);
+  return cleanSubject(m&&m[1]);
+}
+
+function extractConceptSubject(msg){
+  const text=String(msg||'').trim();
+  const patterns=[
+    /\b(?:concept|definition|meaning)\s+(?:of|for)\s+(.+)/i,
+    /\b(?:explain|define|teach\s+me|give\s+me\s+(?:the\s+)?concept\s+of|give\s+concept\s+of)\s+(.+)/i,
+    /\bwhat\s+(?:is|are)\s+(.+)/i,
+  ];
+  for(const p of patterns){
+    const m=text.match(p);
+    const s=cleanSubject(m&&m[1]);
+    if(s) return s;
+  }
+  return '';
+}
+
+function cleanSubject(value){
+  if(!value) return '';
+  let s=String(value).replace(/\s+/g,' ').replace(/[.!?]+$/g,'').trim();
+  s=s.replace(/^(?:learning|studying|reviewing|practicing|starting|start learning|start studying)\s+/i,'')
+     .replace(/\b(today|tonight|now|please|pls|again|first)\b.*$/i,'')
+     .replace(/\b(?:but|and)\s+(?:i|it|this|that)\b.*$/i,'')
+     .replace(/\b(?:for|in)\s+(?:my|the)?\s*(?:quiz|exam|homework|assignment|class)\b.*$/i,'')
+     .trim();
+  if(!s || /^(it|this|that|something|stuff|task|work)$/i.test(s)) return '';
+  return s.slice(0,80);
+}
+
+function buildLocalStudyPlan(subject, low){
+  const lower=String(subject||'').toLowerCase();
+  if(lower.includes('simultaneous equation')){
+    return [
+      {label:'Open a worked example with two equations and two unknowns',duration_minutes:2,done:false},
+      {label:'Choose substitution or elimination and write why it fits this pair',duration_minutes:3,done:false},
+      {label:'Solve one line at a time and keep both equations visible',duration_minutes:6,done:false},
+      {label:'Substitute the answer back into both equations to check it',duration_minutes:3,done:false},
+    ];
+  }
+  if(lower.includes('algebra')){
+    return [
+      {label:'Open the algebra section on variables, equations, or expressions',duration_minutes:2,done:false},
+      {label:'Write one tiny equation and mark the unknown',duration_minutes:3,done:false},
+      {label:'Solve one step at a time while keeping the equation balanced',duration_minutes:5,done:false},
+      {label:'Try one similar algebra question and mark the first blocker',duration_minutes:5,done:false},
+    ];
+  }
+  if(lower.includes('quantum')){
+    return [
+      {label:'Open your quantum mechanics notes, textbook section, or lecture slide',duration_minutes:2,done:false},
+      {label:'Pick one starter idea: wavefunction, measurement, uncertainty, or operators',duration_minutes:3,done:false},
+      {label:'Read one worked example and label every symbol you recognize',duration_minutes:6,done:false},
+      {label:'Write the first confusing symbol, assumption, or equation as your blocker',duration_minutes:3,done:false},
+    ];
+  }
+  return [
+    {label:`Write one thing you already know about ${subject}`,duration_minutes:low?2:2,done:false},
+    {label:`Write one question that feels confusing about ${subject}`,duration_minutes:low?2:2,done:false},
+    {label:'Retry the AI response when the runtime is connected',duration_minutes:low?1:1,done:false},
+  ];
+}
+
+function localToneReply(tone, text){
+  if(tone==='short_direct') return text.replace(/^I can tell .*?\. /,'').replace(/^We will/,'We’ll');
+  if(tone==='cute_playful') return `${text} Tiny progress only.`;
+  if(tone==='coach_like') return `${text} Keep it measurable: material, target, one example.`;
+  if(tone==='friend_like') return `${text} No need to solve the whole thing in one go.`;
+  return `I am here with you. ${text}`;
+}
+
 /* =================================================================
    VOICE UTILS (voiceOutput)
    ================================================================= */
