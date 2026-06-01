@@ -211,7 +211,8 @@ export async function speakText(text: string, scenario: Scenario, onEnd?: () => 
     };
     source.start(0);
   } catch {
-    speakBrowserText(spokenText, scenario, onEnd, voiceWaits);
+    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Browser speechSynthesis fallback is disabled.');
+    onEnd?.();
   }
 }
 
