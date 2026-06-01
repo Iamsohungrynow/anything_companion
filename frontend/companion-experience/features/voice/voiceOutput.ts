@@ -6,7 +6,7 @@
 // Person C owns voice interaction
 // ============================================================
 
-import { Scenario } from '../index';
+import { Scenario } from '../../shared/types';
 
 interface VoiceConfig {
   rate: number;

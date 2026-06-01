@@ -9,7 +9,7 @@
 //   POST /api/chat  →  returns RuntimeResponse
 // ============================================================
 
-import { ChatResult, Scenario } from '../types';
+import { ChatResult, Scenario } from '../../shared/types';
 
 // ── Companion presence first, then action ────────────────────────────────────
 // Narrative rule: emotional presence BEFORE the plan.

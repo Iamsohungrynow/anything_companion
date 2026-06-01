@@ -7,7 +7,7 @@
 // ============================================================
 
 import React, { useEffect, useState } from 'react';
-import { CompanionCard, ChatMessage, ChatResult, Scenario } from '../index';
+import { CompanionCard, ChatMessage, ChatResult, Scenario } from '../../shared/types';
 
 interface Props {
   companion: CompanionCard;
