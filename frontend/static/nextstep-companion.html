@@ -947,12 +947,7 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
       options.onBlocked(()=>playAudioUrl(audioUrl));
       return;
     }
-    if(ttsSup){
-      console.info('[nextstep_tts_fallback]', 'Using browser speechSynthesis because /api/tts is unavailable or blocked.');
-      if(options.onPlaying) options.onPlaying();
-      speakBrowserText(spoken,onEnd);
-      return;
-    }
+    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Browser speechSynthesis fallback is disabled.');
     if(options.onError) options.onError();
     else if(onEnd) onEnd();
   }
@@ -1871,6 +1866,8 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const [input,setInput]=useState('');
   const [typing,setTyping]=useState(false);
   const [speakingId,setSpeakingId]=useState(null);
+  const [pendingChatVoice,setPendingChatVoice]=useState(null);
+  const [voiceErrorId,setVoiceErrorId]=useState(null);
   const endRef=useRef(null);
   const c=COMPANIONS[companion.scenario];
   const currentState=getCompanionStateInfo(typing?'thinking':lastResult?.companion_state);
@@ -1928,8 +1925,25 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   };
 
   const doSpeak=(id,text)=>{
-    if(speakingId===id){stopSpeaking();setSpeakingId(null);}
-    else{speakText(text,()=>setSpeakingId(null));setSpeakingId(id);}
+    if(speakingId===id){
+      stopSpeaking();
+      setSpeakingId(null);
+      setPendingChatVoice(null);
+      return;
+    }
+    setPendingChatVoice(null);
+    setVoiceErrorId(null);
+    speakText(text,()=>setSpeakingId(null),{
+      onBlocked:(playVoice)=>{
+        setSpeakingId(null);
+        setPendingChatVoice({id,playVoice});
+      },
+      onError:()=>{
+        setSpeakingId(null);
+        setVoiceErrorId(id);
+      }
+    });
+    setSpeakingId(id);
   };
 
   return(
@@ -1987,7 +2001,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
             )}
             <div className={`flex ${msg.role==='user'?'justify-end':'justify-start'} msg-in`}>
               {msg.role==='companion'&&(
-                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1 text-sm overflow-hidden"
+                <div className="w-7 h-7 min-w-7 min-h-7 max-w-7 max-h-7 rounded-full flex items-center justify-center flex-none mr-2 mt-1 text-sm overflow-hidden"
                   style={{background:c.gradient}}>
                   {companion.scenario==='acg'
                     ? <img src={ACG_IMG_CARD} alt="" className="w-full h-full object-cover"/>
@@ -2002,10 +2016,22 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
                   {msg.content}
                 </div>
                 {msg.role==='companion'&&ttsSup&&(
-                  <button onClick={()=>doSpeak(msg.id,msg.content)}
-                    className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${speakingId===msg.id?'bg-violet-500/30 text-violet-300 font-bold':'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
-                    {speakingId===msg.id?'⏹ Stop':'🔊 Play'}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <button onClick={()=>doSpeak(msg.id,msg.content)}
+                      className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${speakingId===msg.id?'bg-violet-500/30 text-violet-300 font-bold':'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
+                      {speakingId===msg.id?'⏹ Stop':pendingChatVoice?.id===msg.id?'🔊 Fish ready':'🔊 Play'}
+                    </button>
+                    {pendingChatVoice?.id===msg.id&&(
+                      <button
+                        onClick={()=>{const play=pendingChatVoice.playVoice;setPendingChatVoice(null);setSpeakingId(msg.id);play().finally(()=>setSpeakingId(null));}}
+                        className="text-xs flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/25 text-violet-200 font-bold hover:bg-violet-500/35 transition-colors">
+                        Tap to play Fish
+                      </button>
+                    )}
+                    {voiceErrorId===msg.id&&(
+                      <span className="text-xs text-red-300/80">Fish voice unavailable</span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -2013,8 +2039,12 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
           ))}
           {typing&&(
             <div className="flex justify-start msg-in">
-              <div className="w-7 h-7 rounded-full flex-shrink-0 mr-2 mt-1 text-sm overflow-hidden" style={{background:c.gradient}}>
-                {companion.scenario==='acg'?<img src={ACG_IMG_CARD} alt="" className="w-full h-full object-cover"/>:companion.emoji}
+              <div className="w-7 h-7 min-w-7 min-h-7 max-w-7 max-h-7 rounded-full flex items-center justify-center flex-none mr-2 mt-1 text-sm overflow-hidden" style={{background:c.gradient}}>
+                {companion.scenario==='acg'
+                  ? <img src={ACG_IMG_CARD} alt="" className="w-full h-full object-cover"/>
+                  : companion.sourceImageUrl
+                    ? <img src={companion.sourceImageUrl} alt="" className="w-full h-full object-cover"/>
+                    : companion.emoji}
               </div>
               <div className={`px-4 py-3 rounded-2xl glass border ${c.cardCls}`}>
                 <div className="flex gap-1 items-center h-4">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-white/40 typing-dot" style={{animationDelay:`${i*150}ms`}}/>)}</div>
@@ -2139,7 +2169,7 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     const nextVideo=COMPANION_REPLY_VIDEOS[replyVideoIndexRef.current%COMPANION_REPLY_VIDEOS.length];
     replyVideoIndexRef.current+=1;
     setSpeaking(true);
-    setSubtitle(text);
+    setSubtitle('');
     setShowSub(true);
     setVideoError(false);
     setHoldReplyVideo(true);
@@ -2161,13 +2191,13 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
       onBlocked:(playVoice)=>{
         setPendingVoicePlay(()=>playVoice);
         setVoiceStatus('Browser blocked autoplay. Tap Play voice.');
-        setSubtitle(`${text}  Tap Play voice if audio did not start.`);
+        setSubtitle('Audio did not start automatically.');
         setShowSub(true);
       },
       onError:()=>{
         setPendingVoicePlay(null);
         setVoiceStatus('Fish voice failed. Check /api/tts.');
-        setSubtitle(`${text}  Fish voice failed. Please check /api/tts.`);
+        setSubtitle('Fish voice failed. Please check /api/tts.');
         setShowSub(true);
         playIdleLoop();
       }
@@ -2267,9 +2297,11 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
 
         {/* Subtitle */}
         <div className={`w-full max-w-lg min-h-14 mb-4 text-center px-4 transition-all duration-300 ${showSub?'opacity-100':'opacity-0'}`}>
-          <p className="glass rounded-2xl px-4 py-3 text-sm text-white/85 font-medium leading-relaxed border border-white/10 inline-block max-w-full">
-            {subtitle}
-          </p>
+          {subtitle&&(
+            <p className="glass rounded-2xl px-4 py-3 text-sm text-white/85 font-medium leading-relaxed border border-white/10 inline-block max-w-full">
+              {subtitle}
+            </p>
+          )}
           {voiceStatus&&(
             <p className="mt-2 text-xs font-semibold text-violet-200/80">
               {voiceStatus}
