@@ -7,8 +7,8 @@
 
 ## Before You Start (Setup Checklist)
 
-- [ ] Browser open at `http://127.0.0.1:3000` (or deployed URL), on the homepage
-- [ ] Backup tab preloaded at `http://127.0.0.1:3000/?runtime=local`
+- [ ] Browser open at `http://127.0.0.1:3017` (or deployed URL), on the homepage
+- [ ] Backup tab preloaded at `http://127.0.0.1:3017/?runtime=local`
 - [ ] Screen mirrored or projected
 - [ ] Known-good input ready to type: **"I have a finance quiz but I am tired and stuck."**
 - [ ] Fallback: `?runtime=local` backup tab active — no API key needed for the full demo path

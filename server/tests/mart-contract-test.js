@@ -410,6 +410,16 @@ async function testMemoryPersistence(sessionId) {
 }
 
 async function testCheckInMemory(sessionId) {
+  const doneAfterStuckChat = await postJson("/api/chat", {
+    session_id: sessionId,
+    scenario: "study",
+    message: "I was stuck on finance quiz, but I finished the sprint.",
+    channel: "text",
+    check_in_result: "Done",
+  });
+  assert.equal(doneAfterStuckChat.detected_state, "Sprint completed");
+  assert.equal(doneAfterStuckChat.companion_state, "happy");
+
   const doneChat = await postJson("/api/chat", {
     session_id: sessionId,
     scenario: "study",
@@ -429,6 +439,7 @@ async function testCheckInMemory(sessionId) {
     channel: "text",
     check_in_result: "Partly done",
   });
+  assert.equal(partlyChat.detected_state, "Partial progress");
   assert.equal(partlyChat.memory.check_in_history[0].result, "partly_done");
 
   const stuckChat = await postJson("/api/chat", {
@@ -438,6 +449,7 @@ async function testCheckInMemory(sessionId) {
     channel: "text",
     check_in_result: "I got stuck",
   });
+  assert.equal(stuckChat.detected_state, "Blocked during sprint");
   assert.equal(stuckChat.memory.check_in_history[0].result, "stuck");
 
   const historyCount = stuckChat.memory.check_in_history.length;
