@@ -27,7 +27,9 @@ for (const heading of [
 }
 
 assert.match(html, /result\?\.(answer|reply)|result\.answer\s*\|\|\s*result\.reply|answer\s*\|\|\s*reply/, "frontend must preserve answer-first rendering");
-assert.doesNotMatch(html, /micro_task_plan\.map\([^)]*\)\.join\([^)]*\).*assistant|assistant.*micro_task_plan\.map/s, "main chat answer must not be built from micro_task_plan");
+const assistantTextFunction = html.match(/function getAssistantText\(result\)\{[\s\S]*?\n\}/)?.[0] || "";
+assert.match(assistantTextFunction, /result\?\.answer\s*\|\|\s*result\?\.reply/, "main chat must render the model answer before compatibility fields");
+assert.doesNotMatch(assistantTextFunction, /micro_task_plan/, "main chat answer must not be built from micro_task_plan");
 
 assert.match(html, /\/api\/tts/, "HTML should keep /api/tts integration");
 assert.match(html, /speechSynthesis/, "HTML should keep browser speech synthesis support");
