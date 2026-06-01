@@ -301,11 +301,14 @@ function getCompanionStateInfo(state){
 }
 
 function getSprintMinutes(result){
+  const taskTotal=(result?.micro_task_plan||[])
+    .reduce((sum,task)=>sum+Math.max(0,Number(task?.duration_minutes||0)),0);
+  if(Number.isFinite(taskTotal)&&taskTotal>0) return taskTotal;
   const label=result?.start_button_label||'';
   const match=label.match(/(\d+)\s*-\s*min|(\d+)\s*min/i);
   const fromLabel=Number(match?.[1]||match?.[2]);
   if(Number.isFinite(fromLabel)&&fromLabel>0) return fromLabel;
-  return result?.mode==='Study Sprint Mode'?25:10;
+  return 10;
 }
 
 async function generateChatResult(companion, msg, channel='text', messages=[]) {
@@ -1868,7 +1871,9 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const [speakingId,setSpeakingId]=useState(null);
   const [pendingChatVoice,setPendingChatVoice]=useState(null);
   const [voiceErrorId,setVoiceErrorId]=useState(null);
+  const messagesRef=useRef(null);
   const endRef=useRef(null);
+  const shouldFollowMessagesRef=useRef(true);
   const c=COMPANIONS[companion.scenario];
   const currentState=getCompanionStateInfo(typing?'thinking':lastResult?.companion_state);
   const runtimeFallback=Boolean(lastResult?.fallback_used);
@@ -1876,7 +1881,16 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const onVoice=useCallback(t=>setInput(t),[]);
   const voice=useVoiceInput(onVoice);
 
-  useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth'});},[messages,typing]);
+  const handleMessageScroll=e=>{
+    const el=e.currentTarget;
+    shouldFollowMessagesRef.current=el.scrollHeight-el.scrollTop-el.clientHeight<48;
+  };
+
+  useEffect(()=>{
+    if(!shouldFollowMessagesRef.current) return;
+    const el=messagesRef.current;
+    if(el) el.scrollTo({top:el.scrollHeight,behavior:'smooth'});
+  },[messages,typing]);
 
   useEffect(()=>{
     if(messages.length===0){
@@ -1991,7 +2005,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-72 max-h-96 pr-1">
+        <div ref={messagesRef} onScroll={handleMessageScroll} className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-72 max-h-96 pr-1">
           {messages.map((msg,idx)=>(
             <React.Fragment key={msg.id}>
             {msg.role==='companion'&&lastResult&&messages[idx-1]?.role==='user'&&(
