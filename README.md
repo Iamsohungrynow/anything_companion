@@ -1,122 +1,18 @@
 # NextStep Companion
 
-NextStep Companion is an adaptive AI companion demo that helps users move from vague goals to small, timed actions.
+NextStep Companion is an adaptive AI companion demo for study, work, emotional check-ins, routines, and object-based companions.
 
-The core demo problem is:
+The main demo problem is simple:
 
 ```text
 I need to study, but I cannot start.
 ```
 
-The product is not just a chatbot with a cute avatar. It is an action-oriented companion runtime:
+The product is not just a chatbot with an avatar. It is a companion runtime that understands the user's current state, responds naturally, gives one small next step, starts a timed sprint when useful, and remembers what helped.
 
-1. Understand the latest user message.
-2. Respect the selected tone, role, use case, mode, companion profile, memory, and recent history.
-3. Route the turn to the right support shape.
-4. Generate natural guidance, teaching, task breakdowns, check-ins, or quiz prompts.
-5. Start a short sprint when useful.
-6. Remember what helped.
+## Live Demo
 
-## Hackathon Positioning
-
-Short description:
-
-```text
-An adaptive AI companion that turns vague study and work goals into small, timed actions, then remembers what helped the user start.
-```
-
-Product line:
-
-```text
-Your adaptive AI companion for study, work, daily check-ins, and small actionable steps.
-```
-
-Main judging claim:
-
-```text
-Most AI companions keep users talking. NextStep Companion helps users start.
-```
-
-## Why It Fits Sea x OpenAI Codex Hackathon
-
-### Autonomous And Adaptive AI
-
-The system adapts from user input without requiring manual setup every turn:
-
-```text
-message -> intent -> mode -> answer -> optional micro-task plan -> check-in -> memory update
-```
-
-### AI-Native Products And Operations
-
-The UI is driven by structured AI output, not only a chat bubble:
-
-- answer
-- current mode
-- companion state
-- suggested actions
-- optional micro-task checklist
-- timer
-- check-in
-- memory update
-- orchestration trace
-
-### Deep Domain AI
-
-The focused domain is study initiation and procrastination. The value is helping the user begin, not maximizing conversation length.
-
-## Repo Layout
-
-Root stays operational: package/env/deploy files, `README.md`, and `AGENTS.md`.
-
-```text
-frontend/static/          Served standalone demo and companion data JSON
-frontend/companion-experience/        Companion interaction-system React source
-server/                   Node backend runtime
-server/engines/openai/    OpenAI Responses API adapter
-server/engines/mock/      Emergency fallback engine only
-server/engines/runtime/   Orchestration layer and runtime guards
-server/tests/             Agent, API, Mart, Person D, and live OpenAI tests
-assets/companions/        Cappu, Folio, and Luma companion images
-docs/planning/            Implementation plan and duty split
-docs/testing/             Backend/API test matrix
-docs/deliverables/        Person C/D deliverables and QA notes
-docs/pitch/               Pitch and final narrative documents
-```
-
-Important code anchors:
-
-- `frontend/static/nextstep-companion.html` - served demo UI.
-- `frontend/static/nextstep-companion-data.json` - companion config and schema notes.
-- `frontend/companion-experience/features/chat/ChatInterface.tsx` - Companion chat interaction source.
-- `frontend/companion-experience/features/voice/voiceOutput.ts` - Companion voice output helper.
-- `server/index.js` - HTTP API and static-file server.
-- `server/engines/runtime/orchestrator.js` - Mart runtime orchestration.
-- `server/engines/openai/client.js` - OpenAI runtime adapter.
-- `server/engines/mock/mockEngine.js` - fallback runtime.
-- `server/schemas.js` - request/response validation and normalization.
-- `server/store/sessionStore.js` - in-memory session and memory state.
-
-## Agent Rules
-
-Read `AGENTS.md` before changing runtime, frontend rendering, voice, env, or assets.
-
-Non-negotiable rules:
-
-- The model is the brain.
-- Code provides context, schema, routing hints, session memory, rendering, and fallback handling.
-- Normal chat uses OpenAI when `OPENAI_API_KEY` is configured.
-- Mock is fallback only, unless `USE_MOCK_AI=true`.
-- The visible chat bubble uses `answer || reply`.
-- Never build the main assistant message from `micro_task_plan`.
-- Do not reintroduce generic all-purpose study templates as the main answer.
-- `.env` must never be committed.
-
-## Quick Start
-
-## Live Deployment
-
-Production demo:
+Production:
 
 ```text
 https://compagnon-eveil.vercel.app/
@@ -135,27 +31,150 @@ Expected production health:
   "ok": true,
   "service": "nextstep-runtime",
   "openai_configured": true,
+  "fish_audio_configured": true,
   "mock_forced": false
 }
 ```
 
-Current production branch:
+Production deploys from:
 
 ```text
 main
 ```
 
-Vercel `*.vercel.app` hosts are accepted automatically. If a deployment returns `Host not allowed`, remove stale local-only `ALLOWED_HOSTS` values from the Vercel dashboard or set it to the actual custom domain.
+## Product Behavior
 
-## Local Quick Start
+For each turn, the companion uses:
 
-Copy the environment template:
+- the latest user message
+- selected tone
+- selected role
+- selected use case
+- current mode
+- recent chat history
+- companion profile
+- session memory
+
+The runtime returns structured output for the frontend:
+
+- `answer` and `reply`
+- detected user state
+- active companion mode
+- companion emotional state
+- suggested actions
+- optional micro-task plan
+- sprint/check-in controls
+- memory update
+- orchestration trace
+- fallback status
+
+The visible assistant bubble must render `answer || reply`. The micro-task plan is supporting UI, not the main answer.
+
+## Repository Layout
+
+```text
+api/                         Vercel Serverless Function wrappers
+assets/                      Companion images and video states
+docs/                        Planning, testing, pitch, and deliverables
+frontend/static/             Served standalone demo and companion data
+frontend/companion-experience/
+                             Categorized React source mirror for the companion UI
+server/                      Local Node runtime and shared API handlers
+server/engines/openai/       OpenAI runtime adapter
+server/engines/mock/         Emergency fallback engine only
+server/engines/runtime/      Turn orchestration and runtime guards
+server/tests/                Contract, smoke, live, and reliability tests
+```
+
+Important files:
+
+- `frontend/static/nextstep-companion.html` - deployed standalone demo UI.
+- `frontend/static/nextstep-companion-data.json` - companion data and schema notes.
+- `frontend/companion-experience/features/chat/ChatInterface.tsx` - companion chat source mirror.
+- `frontend/companion-experience/features/voice/voiceOutput.ts` - source mirror for voice output behavior.
+- `server/http/runtimeHandlers.js` - shared handlers for local server and Vercel API wrappers.
+- `server/engines/runtime/orchestrator.js` - turn orchestration.
+- `server/engines/openai/client.js` - OpenAI API adapter.
+- `server/engines/mock/mockEngine.js` - schema-compatible fallback.
+- `server/store/sessionStore.js` - in-memory session and memory state.
+- `api/*.mjs` - thin Vercel wrappers around shared handlers.
+
+## Companion UI Source
+
+The served demo is currently the standalone file under `frontend/static/`.
+
+The categorized source mirror lives under `frontend/companion-experience/`:
+
+```text
+frontend/companion-experience/
+  app/                         App state machine and page routing
+  shared/                      Shared types and local shims
+  features/onboarding/         Scenario, setup, and image selection
+  features/companion/          Companion profiles and avatar preview
+  features/chat/               Chat UI, task panel, local mock generator
+  features/voice/              Voice input and Fish/browser voice output
+  features/video/              Video companion mode
+  features/memory/             Session summary and memory UI
+```
+
+When changing deployed UI behavior, update `frontend/static/nextstep-companion.html`. When changing the maintainable React source mirror, update `frontend/companion-experience/` as well.
+
+## Runtime Flow
+
+```text
+browser
+  -> /api/chat
+  -> runtime orchestrator
+  -> OpenAI adapter when OPENAI_API_KEY is configured
+  -> schema validation and normalization
+  -> session memory update
+  -> frontend renders answer, mode, tasks, timer, check-in, memory
+```
+
+Fallback rules:
+
+- OpenAI is the normal runtime when `OPENAI_API_KEY` is configured.
+- Mock is fallback only, unless `USE_MOCK_AI=true`.
+- Mock fallback must never pretend to be GPT tutoring.
+- Current user message wins over stale mode, stale memory, or previous fallback state.
+
+## Voice Behavior
+
+Voice is progressive enhancement. Typing and reading must always work.
+
+Flow:
+
+```text
+Play button
+  -> POST /api/tts
+  -> Fish Audio when configured
+  -> browser speechSynthesis fallback if Fish is missing, blocked, or fails
+```
+
+Long Fish Audio input is chunked before TTS calls so deployed Vercel functions do not time out on long English or Chinese replies.
+
+Required voice behavior:
+
+- The Play button stays visible even when Fish Audio is not configured.
+- `/api/tts` may return `503` if Fish env vars are missing.
+- Fish failure must not block normal chat.
+- Browser autoplay restrictions must be handled through user-triggered playback.
+
+## Local Development
+
+Install dependencies:
+
+```powershell
+npm install
+```
+
+Create local env:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Edit `.env` for live AI:
+Edit `.env`:
 
 ```env
 OPENAI_API_KEY=your_key_here
@@ -165,7 +184,7 @@ PORT=3017
 USE_MOCK_AI=false
 ```
 
-Run the app and API:
+Start the local app:
 
 ```powershell
 npm run dev
@@ -177,13 +196,58 @@ Open:
 http://127.0.0.1:3017/nextstep-companion.html
 ```
 
-If the browser is stale, use a cache-busting URL:
+If the browser has stale state:
 
 ```text
-http://127.0.0.1:3017/nextstep-companion.html?v=latest
+http://127.0.0.1:3017/nextstep-companion.html?clearState=1
 ```
 
-## API Endpoints
+## Environment Variables
+
+See `.env.example` for the canonical template.
+
+Required for live AI:
+
+```env
+OPENAI_API_KEY=
+```
+
+Common runtime config:
+
+```env
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_SEARCH_MODEL=gpt-5.5
+OPENAI_TIMEOUT_MS=12000
+USE_MOCK_AI=false
+PORT=3017
+HOST=127.0.0.1
+```
+
+Optional voice config:
+
+```env
+FISH_AUDIO_API_KEY=
+FISH_AUDIO_REFERENCE_ID=
+FISH_AUDIO_TIMEOUT_MS=20000
+```
+
+Host/origin config:
+
+```env
+ALLOWED_ORIGINS=http://localhost:3017,http://127.0.0.1:3017
+ALLOWED_HOSTS=127.0.0.1,localhost,::1
+```
+
+Session config:
+
+```env
+MAX_SESSIONS=250
+SESSION_TTL_MS=28800000
+```
+
+Never commit `.env` or real API keys.
+
+## API
 
 ```text
 GET  /api/health
@@ -195,19 +259,16 @@ GET  /api/session/:id/memory
 POST /api/session/:id/reset
 ```
 
-Runtime behavior:
+Runtime expectations:
 
-- If OpenAI works, `/api/chat` returns `fallback_used: false` and `runtime_source: "openai"`.
-- If OpenAI is missing or fails, `/api/chat` returns schema-compatible fallback with `fallback_used: true`.
-- If `USE_MOCK_AI=true`, mock runtime is forced for rehearsal/offline testing.
-- `/api/tts` uses Fish Audio when `FISH_AUDIO_API_KEY` and `FISH_AUDIO_REFERENCE_ID` are configured.
-- Chat voice falls back to browser `speechSynthesis` when Fish Audio is unavailable.
+- Live chat returns `fallback_used: false` when OpenAI is configured and working.
+- Fallback returns schema-compatible responses when OpenAI is missing, failing, or explicitly forced.
+- `/api/tts` returns Fish Audio when configured.
+- Missing Fish Audio config returns a clear `503` without breaking chat.
 
 ## Vercel Deployment
 
-This repo supports Vercel through thin API wrappers in `api/` and shared runtime handlers in `server/http/runtimeHandlers.js`.
-
-Vercel path:
+Vercel uses `.mjs` wrappers because the package remains `type: commonjs`.
 
 ```text
 api/health.mjs                   -> GET /api/health
@@ -217,21 +278,19 @@ api/chat.mjs                     -> POST /api/chat
 api/tts.mjs                      -> POST /api/tts
 api/session/[id]/memory.mjs      -> GET /api/session/:id/memory
 api/session/[id]/reset.mjs       -> POST /api/session/:id/reset
-vercel.json                      -> static rewrites and function runtime config
 ```
 
-The function wrappers use `.mjs` because this package remains `type: commonjs` for the local Node server.
-
-Static rewrites keep the existing demo URLs:
+Static rewrites:
 
 ```text
 /                              -> frontend/static/nextstep-companion.html
 /nextstep-companion.html        -> frontend/static/nextstep-companion.html
 /nextstep-companion-data.json   -> frontend/static/nextstep-companion-data.json
 /assets/*                      -> assets/*
+/models/*                      -> models/*
 ```
 
-Set these in the Vercel dashboard:
+Set these in Vercel:
 
 ```env
 OPENAI_API_KEY=your_key_here
@@ -240,53 +299,26 @@ OPENAI_SEARCH_MODEL=gpt-5.5
 USE_MOCK_AI=false
 ```
 
-Optional voice env:
+Optional Fish Audio:
 
 ```env
 FISH_AUDIO_API_KEY=your_fish_key
 FISH_AUDIO_REFERENCE_ID=your_reference_id
+FISH_AUDIO_TIMEOUT_MS=20000
 ```
 
-For Vercel custom domains, also set:
+For custom domains:
 
 ```env
 ALLOWED_HOSTS=your-domain.example
 ALLOWED_ORIGINS=https://your-domain.example
 ```
 
-Vercel preview/production URLs are auto-detected from Vercel's own environment variables when available.
-Vercel `*.vercel.app` hosts are accepted automatically on Vercel. If `/api/health` returns `Host not allowed`, remove any stale `ALLOWED_HOSTS` value from the Vercel dashboard or set it to your actual custom domain.
-
-Important memory caveat:
-
-The current session store is in-memory. On Vercel Serverless Functions, memory can disappear between invocations or not be shared across function instances. This is acceptable for a short demo, but production memory should move to Vercel KV, Supabase Postgres, or Upstash Redis.
-
-## Environment Variables
-
-See `.env.example` for the current local template.
-
-Key variables:
-
-```env
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5.4-mini
-OPENAI_SEARCH_MODEL=gpt-5.5
-PORT=3017
-HOST=127.0.0.1
-ALLOWED_ORIGINS=http://localhost:3017,http://127.0.0.1:3017
-ALLOWED_HOSTS=127.0.0.1,localhost,::1
-USE_MOCK_AI=false
-OPENAI_TIMEOUT_MS=12000
-FISH_AUDIO_API_KEY=
-FISH_AUDIO_REFERENCE_ID=
-FISH_AUDIO_TIMEOUT_MS=20000
-MAX_SESSIONS=250
-SESSION_TTL_MS=28800000
-```
+Vercel preview and production `*.vercel.app` hosts are accepted automatically.
 
 ## Verification
 
-Run the normal local gate:
+Run the normal gate:
 
 ```powershell
 npm run test:all
@@ -302,13 +334,13 @@ npm run test:api
 npm run test:d
 ```
 
-Run live OpenAI verification when `OPENAI_API_KEY` is configured:
+Run the live OpenAI gate when `OPENAI_API_KEY` is configured:
 
 ```powershell
 npm run test:openai
 ```
 
-Before pushing, check:
+Before pushing:
 
 ```powershell
 git diff --check HEAD
@@ -318,62 +350,67 @@ git ls-files .env
 
 `git ls-files .env` must print nothing.
 
-## Five-Page Demo
+## Demo Flow
 
-1. Home: companion hero plus product explanation.
-2. Personalization and Scan-to-Companion: upload object/pet/toy and choose tone/use case.
-3. Runtime Panel: companion state, current mode, answer, micro-task support, timer, check-in.
-4. Memory Layer: preferences, recent goals, completed tasks, check-in history.
-5. Display Mode: large companion, current mode, reply bubble, current task.
+Five-page story:
 
-## Known-Good Demo Inputs
+1. Home: product framing and companion promise.
+2. Personalization: choose scenario, tone, role, use case, and image.
+3. Runtime panel: answer, mode, companion state, micro-tasks, timer, check-in.
+4. Memory layer: what helped and what the companion learned.
+5. Display mode: large companion view with current reply and state.
 
-Use these during judging:
+Good judging input:
 
 ```text
 I have a finance quiz but I am tired and stuck.
 ```
 
-Expected:
+Expected behavior:
 
-- `intent` is emotional/support or study-start related.
-- `mode` is Encourage Mode or a low-pressure study mode.
-- Answer validates the user first.
-- Micro-task support appears.
-- Memory updates.
+- The answer validates the user's state first.
+- The companion gives a small concrete start.
+- Micro-task support appears as optional structured UI.
+- The timer can start a useful sprint.
+- Memory updates with what helped the user start.
+
+Subject-specific decomposition input:
 
 ```text
 give me concrete steps to learn periodic table
 ```
 
-Expected:
+Expected behavior:
 
-- `intent` is `decompose_task`.
-- Answer mentions subject-specific ideas such as periods, groups, atomic number, symbols, metals/non-metals, or noble gases.
-- Answer must not collapse into a generic "open material, name one concept, do one example, mark blocker" template.
+- The assistant talks about the actual subject.
+- It should mention useful concepts like periods, groups, atomic number, symbols, metals/non-metals, or noble gases.
+- It must not collapse into a generic all-purpose study template.
+
+Vague follow-up input:
 
 ```text
 help me
 ```
 
-Expected after a previous topic:
+Expected behavior after prior context:
 
-- `intent` is `vague_help`.
 - The assistant uses recent history.
-- The assistant starts the first useful step instead of repeating the previous plan.
+- It starts the first useful step instead of repeating a stale generic plan.
 
-## Docs
+## Documentation
 
-- `docs/planning/IMPLEMENTATION_PLAN.md` - architecture and build plan.
-- `docs/planning/DUTY_SPLIT.md` - four-person ownership and timeline.
-- `docs/testing/MART_BACKEND_TEST_CASES.md` - Mart/backend test cases.
-- `docs/deliverables/person-c/` - Person C interaction deliverables.
-- `docs/deliverables/person-d/` - Person D reliability deliverables.
-- `docs/pitch/` - pitch and final narrative docs.
+```text
+docs/planning/IMPLEMENTATION_PLAN.md       Architecture and build plan
+docs/planning/DUTY_SPLIT.md                Team ownership and timeline
+docs/testing/MART_BACKEND_TEST_CASES.md    Backend/API test matrix
+docs/deliverables/person-c/                Archived interaction deliverables
+docs/deliverables/person-d/                Reliability and QA deliverables
+docs/pitch/                                Pitch and final narrative documents
+```
 
-## OpenAI Architecture References
+## Architecture References
 
-- Responses API: https://platform.openai.com/docs/api-reference/responses
-- Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
-- Agents SDK: https://platform.openai.com/docs/guides/agents-sdk
-- Realtime API: https://platform.openai.com/docs/guides/realtime/overview
+- OpenAI Responses API: https://platform.openai.com/docs/api-reference/responses
+- OpenAI Structured Outputs: https://platform.openai.com/docs/guides/structured-outputs
+- OpenAI Agents SDK: https://platform.openai.com/docs/guides/agents-sdk
+- OpenAI Realtime API: https://platform.openai.com/docs/guides/realtime/overview
