@@ -311,6 +311,22 @@ function getSprintMinutes(result){
   return 10;
 }
 
+function getMicroTaskItems(result){
+  const structured=(result?.micro_task_plan||[])
+    .map((task,index)=>({
+      label:String(task?.label||result?.micro_task?.[index]||`Step ${index+1}`),
+      duration_minutes:Math.max(1,Number(task?.duration_minutes||0)||1),
+    }))
+    .filter(task=>task.label.trim());
+  if(structured.length) return structured;
+  const fallback=result?.micro_task||[];
+  const fallbackMinutes=Math.max(1,Math.ceil(getSprintMinutes(result)/Math.max(1,fallback.length||1)));
+  return fallback.map((label,index)=>({
+    label:String(label||`Step ${index+1}`),
+    duration_minutes:fallbackMinutes,
+  }));
+}
+
 async function generateChatResult(companion, msg, channel='text', messages=[]) {
   try {
     const normalized = await requestRuntimeTurn({
@@ -1314,16 +1330,46 @@ function MicroTaskPanel({result,onCheckIn}){
   const [checked,setChecked]=useState({});
   const [sprint,setSprint]=useState(false);
   const [showCheckIn,setShowCheckIn]=useState(false);
-  const [seconds,setSeconds]=useState(getSprintMinutes(result)*60);
+  const [activeTask,setActiveTask]=useState(0);
+  const [seconds,setSeconds]=useState(getMicroTaskItems(result)[0]?.duration_minutes*60||60);
   const [checkIn,setCheckIn]=useState(null);
-  const toggle=i=>setChecked(p=>({...p,[i]:!p[i]}));
+  const taskItems=getMicroTaskItems(result);
+  const currentTask=taskItems[activeTask]||taskItems[0]||{label:'Start',duration_minutes:1};
   const done=Object.values(checked).filter(Boolean).length;
-  const sprintMinutes=getSprintMinutes(result);
+  const selectTask=i=>{
+    if(sprint) return;
+    const task=taskItems[i];
+    if(!task) return;
+    setActiveTask(i);
+    setSeconds(task.duration_minutes*60);
+    setShowCheckIn(false);
+  };
+  const startTask=i=>{
+    const task=taskItems[i]||taskItems[0];
+    if(!task) return;
+    setActiveTask(i);
+    setSeconds(task.duration_minutes*60);
+    setSprint(true);
+    setShowCheckIn(false);
+  };
+  const completeCurrentTask=()=>{
+    const nextChecked={...checked,[activeTask]:true};
+    setChecked(nextChecked);
+    setSprint(false);
+    const nextIndex=taskItems.findIndex((_,i)=>!nextChecked[i]);
+    if(nextIndex>-1){
+      setActiveTask(nextIndex);
+      setSeconds(taskItems[nextIndex].duration_minutes*60);
+    }else{
+      setShowCheckIn(true);
+    }
+  };
   useEffect(()=>{
     setChecked({});
     setSprint(false);
     setShowCheckIn(false);
-    setSeconds(getSprintMinutes(result)*60);
+    setActiveTask(0);
+    setSeconds(getMicroTaskItems(result)[0]?.duration_minutes*60||60);
     setCheckIn(null);
   },[result.reply]);
   useEffect(()=>{
@@ -1333,12 +1379,12 @@ function MicroTaskPanel({result,onCheckIn}){
   },[sprint,seconds]);
   const mm=String(Math.floor(seconds/60)).padStart(2,'0');
   const ss=String(seconds%60).padStart(2,'0');
-  const pct=Math.max(0,Math.min(100,(seconds/(sprintMinutes*60))*100));
+  const pct=Math.max(0,Math.min(100,(seconds/(currentTask.duration_minutes*60))*100));
   return(
     <div className="rounded-2xl glass p-4 space-y-4">
       <p className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-1.5">
         <span>🎯</span>Tiny Steps For This Sprint
-        {done>0&&<span className="ml-auto bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold px-2 py-0.5 rounded-full">{done}/{result.micro_task.length}</span>}
+        {done>0&&<span className="ml-auto bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold px-2 py-0.5 rounded-full">{done}/{taskItems.length}</span>}
       </p>
       {result.goal_understanding&&(
         <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
@@ -1346,26 +1392,28 @@ function MicroTaskPanel({result,onCheckIn}){
           <p className="text-sm text-amber-100/80 font-medium leading-relaxed">{result.goal_understanding}</p>
         </div>
       )}
-      {result.micro_task.map((t,i)=>(
-        <button key={i} onClick={()=>toggle(i)}
-          className={`w-full flex items-center gap-3 text-left p-2.5 rounded-xl transition-all ${checked[i]?'bg-green-500/15 border border-green-500/30':'bg-white/5 hover:bg-white/10'}`}>
-          <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${checked[i]?'bg-green-400 border-green-400':'border-white/30'}`}>
+      {taskItems.map((task,i)=>(
+        <button key={i} onClick={()=>selectTask(i)}
+          className={`w-full flex items-center gap-3 text-left p-2.5 rounded-xl transition-all ${activeTask===i?'bg-indigo-500/15 border border-indigo-400/30':checked[i]?'bg-green-500/15 border border-green-500/30':'bg-white/5 hover:bg-white/10'}`}>
+          <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${checked[i]?'bg-green-400 border-green-400':activeTask===i?'border-indigo-300 bg-indigo-300/20':'border-white/30'}`}>
             {checked[i]&&<span className="text-white text-xs font-black">✓</span>}
           </span>
-          <span className={`text-sm font-medium ${checked[i]?'text-green-400 line-through':'text-white/70'}`}>{t}</span>
+          <span className={`flex-1 text-sm font-medium ${checked[i]?'text-green-400 line-through':'text-white/70'}`}>{task.label}</span>
+          <span className={`text-xs font-black ${activeTask===i?'text-indigo-200':'text-white/35'}`}>{task.duration_minutes} min</span>
         </button>
       ))}
       {!sprint?(
-        <button onClick={()=>{setSprint(true);setShowCheckIn(false);}}
+        <button onClick={()=>startTask(activeTask)}
           className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black text-sm shadow-lg hover:shadow-amber-500/20 transition-all">
-          ▶ {result.start_button_label||'Start 10-min Sprint'}
+          ▶ Start selected task · {currentTask.duration_minutes} min
         </button>
       ):(
         <div className="rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-4 text-center">
           <div className="mb-3 rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1 text-xs font-black text-indigo-100">
             🔄 {result.mode} → Study Sprint Mode
           </div>
-          <p className="text-xs font-black text-indigo-200/70 uppercase tracking-widest mb-2">Shared {sprintMinutes}-min Sprint</p>
+          <p className="text-xs font-black text-indigo-200/70 uppercase tracking-widest mb-2">Task {activeTask+1} of {taskItems.length} · {currentTask.duration_minutes}-min timer</p>
+          <p className="mb-2 text-sm font-bold text-indigo-50/90 leading-relaxed">{currentTask.label}</p>
           <p className="text-4xl font-black text-indigo-100 font-mono">{mm}:{ss}</p>
           <p className="mt-2 text-xs text-indigo-100/60 font-medium">Your companion is staying with you while you start.</p>
           <div className="h-2 rounded-full bg-white/10 overflow-hidden mt-3">
@@ -1375,14 +1423,18 @@ function MicroTaskPanel({result,onCheckIn}){
             <button onClick={()=>setSprint(false)} className="flex-1 rounded-lg border border-indigo-300/20 px-2 py-2 text-xs font-bold text-indigo-200/80 hover:text-indigo-100">
               Pause
             </button>
-            <button onClick={()=>{setSeconds(0);setShowCheckIn(true);}} className="flex-1 rounded-lg bg-indigo-300/20 px-2 py-2 text-xs font-bold text-indigo-100 hover:bg-indigo-300/30">
-              Check in
+            <button onClick={completeCurrentTask} className="flex-1 rounded-lg bg-indigo-300/20 px-2 py-2 text-xs font-bold text-indigo-100 hover:bg-indigo-300/30">
+              Finish task
             </button>
           </div>
-          {seconds===0&&<p className="mt-2 text-sm font-bold text-green-300">Time's up. Check in below.</p>}
+          {seconds===0&&(
+            <button onClick={completeCurrentTask} className="mt-3 w-full rounded-lg bg-green-400/20 px-2 py-2 text-sm font-black text-green-200 hover:bg-green-400/30">
+              Time is up · Mark task done
+            </button>
+          )}
         </div>
       )}
-      {result.check_in_message&&(showCheckIn||seconds===0)&&(
+      {result.check_in_message&&showCheckIn&&(
         <div className="bg-blue-500/10 border border-blue-400/20 rounded-xl p-3">
           <p className="text-xs font-bold text-blue-300/70 uppercase tracking-widest mb-1">💌 Check-in</p>
           <p className="text-sm text-blue-200/80 font-medium leading-relaxed mb-3">{result.check_in_message}</p>
