@@ -984,9 +984,8 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
       options.onBlocked(()=>playAudioUrl(audioUrl));
       return;
     }
-    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Browser speechSynthesis fallback is disabled.');
-    if(options.onError) options.onError();
-    else if(onEnd) onEnd();
+    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Falling back to browser speechSynthesis.');
+    speakBrowserText(spoken,onEnd);
   }
 }
 function speakBrowserText(text,onEnd,voiceWaits=0,runId=++speechRunId){

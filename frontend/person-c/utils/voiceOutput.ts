@@ -211,13 +211,16 @@ export async function speakText(text: string, scenario: Scenario, onEnd?: () => 
     };
     source.start(0);
   } catch {
-    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Browser speechSynthesis fallback is disabled.');
-    onEnd?.();
+    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Falling back to browser speechSynthesis.');
+    speakBrowserText(spokenText, scenario, onEnd, voiceWaits);
   }
 }
 
 function speakBrowserText(text: string, scenario: Scenario, onEnd?: () => void, voiceWaits = 0, runId = ++speechRunId) {
-  if (!isSpeechSynthesisSupported()) return;
+  if (!isSpeechSynthesisSupported()) {
+    onEnd?.();
+    return;
+  }
 
   const synth = window.speechSynthesis;
   synth.cancel(); // Cancel any ongoing speech
