@@ -23,16 +23,16 @@ import {
   ChatMessage,
   ChatResult,
   Memory,
-} from './index';
-import { generateCompanionAsync } from './generateCompanion';
-import { initVoiceSession, resetVoiceSession } from './utils/voiceOutput';
-import ScenarioSelector from './ScenarioSelector';
-import SetupPage from './SetupPage';
-import ImageUpload from './ImageUpload';
-import CompanionCardPage from './CompanionCard';
-import ChatInterface from './ChatInterface';
-import VideoCompanionMode from './components/VideoCompanionMode';
-import MemoryResult from './MemoryResult';
+} from '../shared/types';
+import { generateCompanionAsync } from '../features/companion/companionProfiles';
+import { initVoiceSession, resetVoiceSession } from '../features/voice/voiceOutput';
+import ScenarioSelector from '../features/onboarding/ScenarioSelector';
+import SetupPage from '../features/onboarding/SetupPage';
+import ImageUpload from '../features/onboarding/ImageUpload';
+import CompanionCardPage from '../features/companion/CompanionCardPage';
+import ChatInterface from '../features/chat/ChatInterface';
+import VideoCompanionMode from '../features/video/VideoCompanionMode';
+import MemoryResult from '../features/memory/MemoryResult';
 
 export default function App() {
   // ------ App State -------------------------------------------------------
@@ -214,7 +214,7 @@ export default function App() {
       {step === 'upload' && selectedScenario && (
         <ImageUpload
           scenario={selectedScenario}
-          onGenerate={handleImageAndGenerate}
+          onImageSelected={handleImageAndGenerate}
           onBack={() => setStep('setup')}
         />
       )}
