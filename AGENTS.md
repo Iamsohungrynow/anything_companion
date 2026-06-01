@@ -19,7 +19,7 @@ The model is the brain. Local code provides context, routing hints, schema valid
 
 1. `docs/` contains plans, pitch material, team deliverables, and test matrices.
 2. `frontend/static/` contains the served standalone HTML demo and companion data.
-3. `frontend/person-c/` contains Person C interaction-system source files.
+3. `frontend/companion-experience/` contains the companion interaction-system source files.
 4. `server/engines/openai/` contains the OpenAI adapter.
 5. `server/engines/mock/` contains emergency fallback logic only.
 6. `server/engines/runtime/` contains orchestration and runtime guards.

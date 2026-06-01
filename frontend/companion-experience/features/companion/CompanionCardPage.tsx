@@ -2,8 +2,8 @@
 // Companion Card Component
 // ============================================================
 import React from 'react';
-import { CompanionCard as Companion } from './index';
-import Pseudo3DPreview from './components/Pseudo3DPreview';
+import { CompanionCard as Companion } from '../../shared/types';
+import Pseudo3DPreview from './Pseudo3DPreview';
 
 interface Props {
   companion: Companion;

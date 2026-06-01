@@ -6,7 +6,7 @@
 // Person C owns voice interaction
 // ============================================================
 
-import { Scenario } from '../index';
+import { Scenario } from '../../shared/types';
 
 interface VoiceConfig {
   rate: number;
@@ -63,7 +63,7 @@ function splitSpeechText(text: string): string[] {
 
   const chunks: string[] = [];
   cleaned
-    .split(/(?<=[.!?])\s+|,\s+|;\s+/)
+    .split(/(?<=[.!?。！？])\s+|(?<=[。！？])|[,，;；]\s*/)
     .map((part) => part.trim())
     .filter(Boolean)
     .forEach((part) => {
@@ -73,6 +73,11 @@ function splitSpeechText(text: string): string[] {
       }
 
       const words = part.split(/\s+/);
+      if (words.length === 1) {
+        for (let i = 0; i < part.length; i += 95) chunks.push(part.slice(i, i + 95));
+        return;
+      }
+
       let line = '';
       words.forEach((word) => {
         if (`${line} ${word}`.trim().length > 95) {
@@ -86,6 +91,26 @@ function splitSpeechText(text: string): string[] {
     });
 
   return chunks;
+}
+
+function buildFishTtsChunks(text: string): string[] {
+  const speechChunks = splitSpeechText(text);
+  const chunks = speechChunks.length ? speechChunks : [text];
+  const batches: string[] = [];
+  let current = '';
+
+  chunks.forEach((chunk) => {
+    const next = current ? `${current} ${chunk}` : chunk;
+    if (next.length > 180 && current) {
+      batches.push(current);
+      current = chunk;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) batches.push(current);
+  return batches;
 }
 
 function pauseForChunk(chunk: string, index: number, total: number): number {
@@ -183,41 +208,55 @@ export async function speakText(text: string, scenario: Scenario, onEnd?: () => 
       activeTtsSource = null;
     }
 
-    const response = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: spokenText }),
-    });
-    if (!response.ok) throw new Error('TTS proxy failed');
-
     const audioWindow = window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
     const AudioCtx = audioWindow.AudioContext || audioWindow.webkitAudioContext;
     if (!AudioCtx) throw new Error('Web Audio unavailable');
     if (!ttsAudioContext) ttsAudioContext = new AudioCtx();
     if (ttsAudioContext.state === 'suspended') await ttsAudioContext.resume();
 
-    const audioBytes = await response.arrayBuffer();
-    const decoded = await ttsAudioContext.decodeAudioData(audioBytes.slice(0));
-    if (runId !== speechRunId) return;
-
-    const source = ttsAudioContext.createBufferSource();
-    activeTtsSource = source;
-    source.buffer = decoded;
-    source.connect(ttsAudioContext.destination);
-    source.onended = () => {
+    const playAudioBytes = async (audioBytes: ArrayBuffer) => {
+      const decoded = await ttsAudioContext!.decodeAudioData(audioBytes.slice(0));
       if (runId !== speechRunId) return;
-      activeTtsSource = null;
-      onEnd?.();
+      await new Promise<void>((resolve) => {
+        const source = ttsAudioContext!.createBufferSource();
+        activeTtsSource = source;
+        source.buffer = decoded;
+        source.connect(ttsAudioContext!.destination);
+        source.onended = () => {
+          activeTtsSource = null;
+          if (runId !== speechRunId) {
+            resolve();
+            return;
+          }
+          resolve();
+        };
+        source.start(0);
+      });
     };
-    source.start(0);
-  } catch {
-    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Browser speechSynthesis fallback is disabled.');
+
+    for (const chunk of buildFishTtsChunks(spokenText)) {
+      if (runId !== speechRunId) return;
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: chunk }),
+      });
+      if (!response.ok) throw new Error('TTS proxy failed');
+      await playAudioBytes(await response.arrayBuffer());
+    }
+
     onEnd?.();
+  } catch {
+    console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Falling back to browser speechSynthesis.');
+    speakBrowserText(spokenText, scenario, onEnd, voiceWaits);
   }
 }
 
 function speakBrowserText(text: string, scenario: Scenario, onEnd?: () => void, voiceWaits = 0, runId = ++speechRunId) {
-  if (!isSpeechSynthesisSupported()) return;
+  if (!isSpeechSynthesisSupported()) {
+    onEnd?.();
+    return;
+  }
 
   const synth = window.speechSynthesis;
   synth.cancel(); // Cancel any ongoing speech

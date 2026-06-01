@@ -35,7 +35,7 @@ export interface SetupProfile {
 }
 
 // ------ Companion Card -------------------------------------------------------
-// Modify companion profiles in: src/data/companions.ts
+// Modify companion profiles in: features/companion/companionProfiles.ts
 export interface CompanionCard {
   name: string;
   type: string;
@@ -62,7 +62,7 @@ export interface ChatMessage {
 }
 
 // ------ Chat Result (matches B's RuntimeResponse contract) -------------------
-// Modify mock in: src/utils/generateChatResult.ts
+// Modify mock in: features/chat/chatResultGenerator.ts
 // Replace with real API call when B's backend is ready
 export interface MicroTask {
   label: string;

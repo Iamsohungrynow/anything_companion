@@ -6,7 +6,7 @@
 // ============================================================
 
 import React from 'react';
-import { CompanionCard } from '../index';
+import { CompanionCard } from '../../shared/types';
 
 interface Props {
   companion: CompanionCard;

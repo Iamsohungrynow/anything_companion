@@ -187,22 +187,22 @@ ChatInterface
 ## 📤 Files Person C Delivered
 
 **Enhanced**:
-- `frontend/person-c/ChatInterface.tsx` - Main interaction hub
+- `frontend/companion-experience/features/chat/ChatInterface.tsx` - Main interaction hub
 
 **New Components**:
-- `frontend/person-c/components/VideoCompanionMode.tsx` - Emoji view mode
-- `frontend/person-c/components/Pseudo3DPreview.tsx` - Avatar display
+- `frontend/companion-experience/features/video/VideoCompanionMode.tsx` - Emoji view mode
+- `frontend/companion-experience/features/companion/Pseudo3DPreview.tsx` - Avatar display
 
 **New Hooks**:
-- `frontend/person-c/hooks/useVoiceInput.ts` - Voice input wrapper
+- `frontend/companion-experience/features/voice/useVoiceInput.ts` - Voice input wrapper
 
 **New Utilities**:
-- `frontend/person-c/utils/voiceOutput.ts` - Text-to-speech engine
+- `frontend/companion-experience/features/voice/voiceOutput.ts` - Text-to-speech engine
 
 **Support Files**:
-- `frontend/person-c/ImageUpload.tsx` - Image selection
-- `frontend/person-c/CompanionCard.tsx` - Companion preview
-- `frontend/person-c/generateCompanion.ts` - Companion profiles
+- `frontend/companion-experience/features/onboarding/ImageUpload.tsx` - Image selection
+- `frontend/companion-experience/features/companion/CompanionCardPage.tsx` - Companion preview
+- `frontend/companion-experience/features/companion/companionProfiles.ts` - Companion profiles
 
 **Documentation**:
 - `docs/deliverables/person-c/PERSON_C_COMPLETION.md` - Detailed completion report

@@ -7,7 +7,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..", "..");
 const guide = fs.readFileSync(path.join(root, "AGENTS.md"), "utf8");
 const html = fs.readFileSync(path.join(root, "frontend", "static", "nextstep-companion.html"), "utf8");
-const voiceOutput = fs.readFileSync(path.join(root, "frontend", "person-c", "utils", "voiceOutput.ts"), "utf8");
+const voiceOutput = fs.readFileSync(path.join(root, "frontend", "companion-experience", "features", "voice", "voiceOutput.ts"), "utf8");
 const serverIndex = fs.readFileSync(path.join(root, "server", "index.js"), "utf8");
 const runtimeHandlers = fs.readFileSync(path.join(root, "server", "http", "runtimeHandlers.js"), "utf8");
 const envExample = fs.readFileSync(path.join(root, ".env.example"), "utf8");
@@ -27,11 +27,16 @@ for (const heading of [
 }
 
 assert.match(html, /result\?\.(answer|reply)|result\.answer\s*\|\|\s*result\.reply|answer\s*\|\|\s*reply/, "frontend must preserve answer-first rendering");
-assert.doesNotMatch(html, /micro_task_plan\.map\([^)]*\)\.join\([^)]*\).*assistant|assistant.*micro_task_plan\.map/s, "main chat answer must not be built from micro_task_plan");
+const assistantTextFunction = html.match(/function getAssistantText\(result\)\{[\s\S]*?\n\}/)?.[0] || "";
+assert.match(assistantTextFunction, /result\?\.answer\s*\|\|\s*result\?\.reply/, "main chat must render the model answer before compatibility fields");
+assert.doesNotMatch(assistantTextFunction, /micro_task_plan/, "main chat answer must not be built from micro_task_plan");
 
 assert.match(html, /\/api\/tts/, "HTML should keep /api/tts integration");
+assert.match(html, /buildFishTtsChunks/, "HTML should chunk long Fish Audio TTS input before calling /api/tts");
+assert.match(html, /body:JSON\.stringify\(\{text:chunk\}\)/, "HTML should send chunked text to /api/tts");
 assert.match(html, /speechSynthesis/, "HTML should keep browser speech synthesis support");
 assert.match(html, /speakBrowserText\(spoken,onEnd\)/, "HTML /api/tts failure must fall back to browser speech");
+assert.match(voiceOutput, /buildFishTtsChunks/, "TS voice helper should chunk long Fish Audio TTS input before calling /api/tts");
 assert.match(voiceOutput, /catch\s*\{[\s\S]*speakBrowserText\(spokenText,\s*scenario,\s*onEnd,\s*voiceWaits\)/, "TS voice helper must fall back to browser speech");
 assert.match(runtimeHandlers, /url\.pathname === "\/api\/tts"|handleTts/, "backend must expose POST /api/tts");
 assert.match(runtimeHandlers, /fish_audio_configured/, "health response must expose Fish Audio configuration state");

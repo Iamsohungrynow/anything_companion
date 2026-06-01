@@ -5,7 +5,7 @@
 // demo path or root step names.
 // ============================================================
 import React, { useState } from 'react';
-import { Scenario } from '../types';
+import { Scenario } from '../../shared/types';
 
 interface Props {
   onSelect: (scenario: Scenario) => void;

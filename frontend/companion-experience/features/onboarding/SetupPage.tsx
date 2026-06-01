@@ -6,7 +6,7 @@
 // Captures tone, role, and use_case, then passes them upstream via onComplete.
 // ============================================================
 import React, { useState } from 'react';
-import { Scenario, Tone, UseCase, CompanionRole, SetupProfile } from '../types';
+import { Scenario, Tone, UseCase, CompanionRole, SetupProfile } from '../../shared/types';
 
 interface Props {
   scenario: Scenario;

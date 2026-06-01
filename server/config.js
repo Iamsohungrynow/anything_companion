@@ -8,7 +8,7 @@ const FRONTEND_STATIC_DIR = path.join(ROOT_DIR, "frontend", "static");
 const DATA_FILE = path.join(FRONTEND_STATIC_DIR, "nextstep-companion-data.json");
 const HTML_FILE = path.join(FRONTEND_STATIC_DIR, "nextstep-companion.html");
 
-const PORT = parsePositiveInteger(process.env.PORT, 3000);
+const PORT = parsePositiveInteger(process.env.PORT, 3017);
 const RENDER_EXTERNAL_HOSTNAME = String(process.env.RENDER_EXTERNAL_HOSTNAME || "").trim().toLowerCase();
 const RENDER_EXTERNAL_URL = String(process.env.RENDER_EXTERNAL_URL || (RENDER_EXTERNAL_HOSTNAME ? `https://${RENDER_EXTERNAL_HOSTNAME}` : ""))
   .trim()

@@ -1,19 +1,19 @@
-/// <reference path="./react-shim.d.ts" />
+/// <reference path="../../shared/react-shim.d.ts" />
 // ============================================================
 // PAGE 4: CHAT INTERFACE
 // ============================================================
-// Voice input:  src/hooks/useVoiceInput.ts
-// Voice output: src/utils/voiceOutput.ts  (session-locked voice)
-// AI replies:   src/utils/generateChatResult.ts
+// Voice input:  features/voice/useVoiceInput.ts
+// Voice output: features/voice/voiceOutput.ts  (session-locked voice)
+// AI replies:   features/chat/chatResultGenerator.ts
 // ============================================================
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { CompanionCard, ChatMessage, ChatResult, Scenario } from './index';
-import { generateChatResultAsync } from './generateChatResult';
+import { CompanionCard, ChatMessage, ChatResult, Scenario } from '../../shared/types';
+import { generateChatResultAsync } from './chatResultGenerator';
 import {
   speakText, stopSpeaking, isSpeechSynthesisSupported, getLockedVoiceName,
-} from './utils/voiceOutput';
-import { useVoiceInput } from './hooks/useVoiceInput';
-import Pseudo3DPreview from './components/Pseudo3DPreview';
+} from '../voice/voiceOutput';
+import { useVoiceInput } from '../voice/useVoiceInput';
+import Pseudo3DPreview from '../companion/Pseudo3DPreview';
 
 interface Props {
   companion:    CompanionCard;

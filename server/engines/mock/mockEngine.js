@@ -123,6 +123,7 @@ function buildPlanningContext(input, session) {
     subject,
     teachingSubject,
     continuationSubject,
+    checkInResult: input.check_in_result,
     useCase,
     tone,
     companionName: companion.name || "your companion",
@@ -418,8 +419,9 @@ function buildStudyResponse(context, mode) {
 
 function buildCheckInResponse(context) {
   const subject = context.subject || "the current task";
-  const stuck = String(context.message).toLowerCase().includes("stuck");
-  const partly = String(context.message).toLowerCase().includes("partly");
+  const normalizedCheckIn = String(context.checkInResult || "").toLowerCase();
+  const stuck = normalizedCheckIn.includes("stuck");
+  const partly = normalizedCheckIn.includes("partly");
   const done = !stuck && !partly;
   const firstTask = stuck
     ? `Circle the exact line, formula, or sentence in ${subject} where you got stuck`

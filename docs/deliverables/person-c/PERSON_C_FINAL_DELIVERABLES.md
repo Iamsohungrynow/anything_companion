@@ -83,7 +83,7 @@
 
 ### Utilities Created:
 1. **voiceOutput.ts** - TTS with session-locked voice
-2. **generateCompanion.ts** - Mock companion generation
+2. **features/companion/companionProfiles.ts** - Mock companion generation
 
 ## Integration Points
 
@@ -153,26 +153,34 @@ Expected behavior flow:
 ## File Structure
 
 ```
-frontend/person-c/
-├── ChatInterface.tsx (Enhanced with state reactions & timer)
-├── App.tsx (Updated imports)
-├── index.ts (Type definitions)
-├── generateChatResult.ts (Mock AI responses)
-├── generateCompanion.ts (Companion profiles)
-├── ScenarioSelector.tsx (Existing)
-├── SetupPage.tsx (Existing)
-├── ImageUpload.tsx (New)
-├── CompanionCard.tsx (New)
-├── MemoryResult.tsx (Existing)
-├── DEMO_SCRIPT.md (Existing)
-├── PERSON_C_COMPLETION.md (Completion report)
-├── components/
-│   ├── VideoCompanionMode.tsx (New)
-│   └── Pseudo3DPreview.tsx (New)
-├── hooks/
-│   └── useVoiceInput.ts (New)
-└── utils/
-    └── voiceOutput.ts (New)
+frontend/companion-experience/
+  index.ts
+  app/
+    App.tsx
+  shared/
+    types.ts
+    react-shim.d.ts
+  features/
+    onboarding/
+      ScenarioSelector.tsx
+      SetupPage.tsx
+      ImageUpload.tsx
+    companion/
+      CompanionCardPage.tsx
+      Pseudo3DPreview.tsx
+      companionProfiles.ts
+    chat/
+      ChatInterface.tsx
+      chatResultGenerator.ts
+    voice/
+      useVoiceInput.ts
+      voiceOutput.ts
+    video/
+      VideoCompanionMode.tsx
+    memory/
+      MemoryResult.tsx
+      AlignmentBadges.tsx
+      SameEngineTable.tsx
 ```
 
 ## Testing Checklist
@@ -208,7 +216,7 @@ frontend/person-c/
    - Pro: Works everywhere, no model assets needed
    - Con: Less visual polish than full animation
 
-2. **Mock AI**: Using generateChatResult.ts mock data
+2. **Mock AI**: Using features/chat/chatResultGenerator.ts mock data
    - Pro: Works without API
    - Con: Static responses for demo
 

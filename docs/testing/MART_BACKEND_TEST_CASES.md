@@ -69,13 +69,13 @@ npm run dev
 Health:
 
 ```powershell
-Invoke-RestMethod "http://127.0.0.1:3000/api/health"
+Invoke-RestMethod "http://127.0.0.1:3017/api/health"
 ```
 
 Create session:
 
 ```powershell
-$session = Invoke-RestMethod "http://127.0.0.1:3000/api/session" `
+$session = Invoke-RestMethod "http://127.0.0.1:3017/api/session" `
   -Method POST `
   -ContentType "application/json" `
   -Body (@{ scenario = "study" } | ConvertTo-Json -Depth 10)
@@ -86,7 +86,7 @@ $session.session_id
 Chat:
 
 ```powershell
-$chat = Invoke-RestMethod "http://127.0.0.1:3000/api/chat" `
+$chat = Invoke-RestMethod "http://127.0.0.1:3017/api/chat" `
   -Method POST `
   -ContentType "application/json" `
   -Body (@{

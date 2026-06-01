@@ -102,48 +102,48 @@ Completed all 9 core tasks for the Interaction System + Adaptive UX role. Enhanc
 ## Key Components Created
 
 ### New Files:
-1. **ChatInterface.tsx** (Enhanced)
+1. **features/chat/ChatInterface.tsx** (Enhanced)
    - Added `CountdownTimer` component
    - Added `CompanionStateIndicator` component
    - Enhanced `TaskSupportPanel` with timer and state display
    - Improved main component with companion state visualization
 
-2. **components/VideoCompanionMode.tsx** (New)
+2. **features/video/VideoCompanionMode.tsx** (New)
    - Large emoji display with pulse animation
    - Shows companion state, mode, and latest message
    - Task preview
    - Memory badge display
    - Back to chat button
 
-3. **components/Pseudo3DPreview.tsx** (New)
+3. **features/companion/Pseudo3DPreview.tsx** (New)
    - Simple avatar display component
    - Supports emoji or image fallback
    - Three sizes (sm, md, lg)
    - Error handling for missing images
 
-4. **hooks/useVoiceInput.ts** (New)
+4. **features/voice/useVoiceInput.ts** (New)
    - Web Speech API integration
    - Handles interim and final transcripts
    - Error handling
    - Start/stop controls
 
-5. **utils/voiceOutput.ts** (New)
+5. **features/voice/voiceOutput.ts** (New)
    - Text-to-Speech functionality
    - Session-locked voice selection
    - Per-scenario voice configuration
    - Pause/resume functionality
 
-6. **ImageUpload.tsx** (New)
+6. **features/onboarding/ImageUpload.tsx** (New)
    - Image upload interface
    - Default image fallback option
    - File input handling
 
-7. **CompanionCard.tsx** (New)
+7. **features/companion/CompanionCardPage.tsx** (New)
    - Companion profile display
    - Shows all companion attributes
    - Navigation to chat
 
-8. **generateCompanion.ts** (New)
+8. **features/companion/companionProfiles.ts** (New)
    - Mock companion generation
    - Three scenario companions (Study, ACG, Pet)
 

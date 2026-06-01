@@ -2,7 +2,7 @@
 // PAGE 5: MEMORY / RESULT PAGE
 // ============================================================
 import React from 'react';
-import { CompanionCard, ChatResult, Memory, Scenario } from '../types';
+import { CompanionCard, ChatResult, Memory, Scenario } from '../../shared/types';
 import AlignmentBadges from './AlignmentBadges';
 import SameEngineTable from './SameEngineTable';
 
