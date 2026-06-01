@@ -1,7 +1,7 @@
 // ============================================================
 // Generate Companion Profile
 // ============================================================
-import { CompanionCard, Scenario } from './index';
+import { CompanionCard, Scenario } from '../../shared/types';
 
 export async function generateCompanionAsync(scenario: Scenario, imageUrl?: string): Promise<CompanionCard> {
   // In a real implementation, this would call the backend API

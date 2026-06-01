@@ -2,7 +2,7 @@
 // Image Upload Component
 // ============================================================
 import React, { useRef } from 'react';
-import { Scenario } from './index';
+import { Scenario } from '../../shared/types';
 
 interface Props {
   scenario: Scenario | null;
