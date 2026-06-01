@@ -32,8 +32,11 @@ assert.match(assistantTextFunction, /result\?\.answer\s*\|\|\s*result\?\.reply/,
 assert.doesNotMatch(assistantTextFunction, /micro_task_plan/, "main chat answer must not be built from micro_task_plan");
 
 assert.match(html, /\/api\/tts/, "HTML should keep /api/tts integration");
+assert.match(html, /buildFishTtsChunks/, "HTML should chunk long Fish Audio TTS input before calling /api/tts");
+assert.match(html, /body:JSON\.stringify\(\{text:chunk\}\)/, "HTML should send chunked text to /api/tts");
 assert.match(html, /speechSynthesis/, "HTML should keep browser speech synthesis support");
 assert.match(html, /speakBrowserText\(spoken,onEnd\)/, "HTML /api/tts failure must fall back to browser speech");
+assert.match(voiceOutput, /buildFishTtsChunks/, "TS voice helper should chunk long Fish Audio TTS input before calling /api/tts");
 assert.match(voiceOutput, /catch\s*\{[\s\S]*speakBrowserText\(spokenText,\s*scenario,\s*onEnd,\s*voiceWaits\)/, "TS voice helper must fall back to browser speech");
 assert.match(runtimeHandlers, /url\.pathname === "\/api\/tts"|handleTts/, "backend must expose POST /api/tts");
 assert.match(runtimeHandlers, /fish_audio_configured/, "health response must expose Fish Audio configuration state");

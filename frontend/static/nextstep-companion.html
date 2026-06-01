@@ -853,12 +853,16 @@ function splitSpeechText(text){
   if(!cleaned) return [];
   const chunks=[];
   cleaned
-    .split(/(?<=[.!?])\s+|,\s+|;\s+/)
+    .split(/(?<=[.!?。！？])\s+|(?<=[。！？])|[,，;；]\s*/)
     .map(part=>part.trim())
     .filter(Boolean)
     .forEach(part=>{
       if(part.length<=115){chunks.push(part);return;}
       const words=part.split(/\s+/);
+      if(words.length===1){
+        for(let i=0;i<part.length;i+=95) chunks.push(part.slice(i,i+95));
+        return;
+      }
       let line='';
       words.forEach(word=>{
         if((line+' '+word).trim().length>95){
@@ -871,6 +875,23 @@ function splitSpeechText(text){
       if(line) chunks.push(line.trim());
     });
   return chunks;
+}
+function buildFishTtsChunks(text){
+  const speechChunks=splitSpeechText(text);
+  const chunks=speechChunks.length?speechChunks:[text];
+  const batches=[];
+  let current='';
+  chunks.forEach(chunk=>{
+    const next=current?`${current} ${chunk}`:chunk;
+    if(next.length>180&&current){
+      batches.push(current);
+      current=chunk;
+    }else{
+      current=next;
+    }
+  });
+  if(current) batches.push(current);
+  return batches;
 }
 function pauseForChunk(chunk,index,total){
   if(index>=total-1) return 0;
@@ -917,13 +938,14 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
   const spoken=cleanSpeechText(text);
   if(!spoken){if(onEnd) onEnd(); return;}
   const runId=++speechRunId;
-  let audioUrl=null;
-  let audioBytes=null;
-  const playAudioUrl=async(url)=>{
+  const fetchedAudio=[];
+  const playAudioUrls=async(bytesList,index=0)=>{
     if(runId!==speechRunId) return;
+    if(index>=bytesList.length){if(onEnd) onEnd(); return;}
+    const url=URL.createObjectURL(new Blob([bytesList[index]],{type:'audio/mpeg'}));
     const audio=new Audio(url);
     activeTtsAudio=audio;
-    audio.onended=()=>{URL.revokeObjectURL(url);activeTtsAudio=null;if(onEnd) onEnd();};
+    audio.onended=()=>{URL.revokeObjectURL(url);activeTtsAudio=null;playAudioUrls(bytesList,index+1);};
     audio.onerror=()=>{
       URL.revokeObjectURL(url);
       activeTtsAudio=null;
@@ -932,7 +954,7 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
     };
     await audio.play();
   };
-  const makeManualPlay=bytes=>()=>playAudioUrl(URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'})));
+  const makeManualPlay=bytesList=>()=>playAudioUrls(bytesList);
   const playAudioBuffer=async(bytes)=>{
     const AudioCtx=window.AudioContext||window.webkitAudioContext;
     if(!AudioCtx) throw new Error('Web Audio unavailable');
@@ -941,17 +963,20 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
     if(ttsAudioContext.state!=='running') throw new Error('Audio context blocked');
     const decoded=await ttsAudioContext.decodeAudioData(bytes.slice(0));
     if(runId!==speechRunId) return;
-    const source=ttsAudioContext.createBufferSource();
-    activeTtsSource=source;
-    source.buffer=decoded;
-    source.connect(ttsAudioContext.destination);
-    source.onended=()=>{
-      if(runId!==speechRunId) return;
-      activeTtsSource=null;
-      if(onEnd) onEnd();
-    };
-    source.start(0);
-    if(options.onPlaying) options.onPlaying();
+    await new Promise((resolve,reject)=>{
+      const source=ttsAudioContext.createBufferSource();
+      activeTtsSource=source;
+      source.buffer=decoded;
+      source.connect(ttsAudioContext.destination);
+      source.onended=()=>{
+        activeTtsSource=null;
+        if(runId!==speechRunId){resolve();return;}
+        resolve();
+      };
+      source.onerror=reject;
+      source.start(0);
+      if(options.onPlaying) options.onPlaying();
+    });
   };
   try{
     if(options.onLoading) options.onLoading();
@@ -966,22 +991,27 @@ async function speakText(text,onEnd,options={},voiceWaits=0){
       activeTtsSource=null;
     }
 
-    const response=await fetch('/api/tts',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:spoken}),
-    });
-    if(!response.ok) throw new Error('TTS proxy failed');
-    audioBytes=await response.arrayBuffer();
-    if(runId!==speechRunId) return;
-    if(options.onReady) options.onReady(makeManualPlay(audioBytes));
-    await playAudioBuffer(audioBytes);
-  }catch(e){
-    if(audioBytes&&!audioUrl){
-      audioUrl=URL.createObjectURL(new Blob([audioBytes],{type:'audio/mpeg'}));
+    const fishChunks=buildFishTtsChunks(spoken);
+    for(const chunk of fishChunks){
+      if(runId!==speechRunId) return;
+      const response=await fetch('/api/tts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({text:chunk}),
+      });
+      if(!response.ok) throw new Error('TTS proxy failed');
+      fetchedAudio.push(await response.arrayBuffer());
     }
-    if(audioUrl&&options.onBlocked){
-      options.onBlocked(()=>playAudioUrl(audioUrl));
+    if(runId!==speechRunId) return;
+    if(options.onReady) options.onReady(makeManualPlay(fetchedAudio));
+    for(const bytes of fetchedAudio){
+      if(runId!==speechRunId) return;
+      await playAudioBuffer(bytes);
+    }
+    if(onEnd) onEnd();
+  }catch(e){
+    if(fetchedAudio.length&&options.onBlocked){
+      options.onBlocked(makeManualPlay(fetchedAudio));
       return;
     }
     console.warn('[nextstep_tts_error]', 'Fish Audio /api/tts failed or was blocked. Falling back to browser speechSynthesis.');
