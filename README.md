@@ -71,7 +71,7 @@ Root stays operational: package/env/deploy files, `README.md`, and `AGENTS.md`.
 
 ```text
 frontend/static/          Served standalone demo and companion data JSON
-frontend/person-c/        Person C interaction-system React deliverable
+frontend/companion-experience/        Companion interaction-system React source
 server/                   Node backend runtime
 server/engines/openai/    OpenAI Responses API adapter
 server/engines/mock/      Emergency fallback engine only
@@ -88,8 +88,8 @@ Important code anchors:
 
 - `frontend/static/nextstep-companion.html` - served demo UI.
 - `frontend/static/nextstep-companion-data.json` - companion config and schema notes.
-- `frontend/person-c/ChatInterface.tsx` - Person C chat interaction source.
-- `frontend/person-c/utils/voiceOutput.ts` - Person C voice output helper.
+- `frontend/companion-experience/features/chat/ChatInterface.tsx` - Companion chat interaction source.
+- `frontend/companion-experience/features/voice/voiceOutput.ts` - Companion voice output helper.
 - `server/index.js` - HTTP API and static-file server.
 - `server/engines/runtime/orchestrator.js` - Mart runtime orchestration.
 - `server/engines/openai/client.js` - OpenAI runtime adapter.
