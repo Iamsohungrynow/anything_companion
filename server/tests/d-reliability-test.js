@@ -44,6 +44,8 @@ function inspectRenderConfig() {
 function testFrontendRuntimeContract() {
   assert.match(html, /function requestRuntimeTurn\s*\(/, "frontend should define requestRuntimeTurn()");
   assert.match(html, /fetch\(["']\/api\/chat["']/, "frontend should call POST /api/chat");
+  assert.match(html, /@babel\/standalone@7\/babel\.min\.js/, "frontend should pin Babel standalone to v7");
+  assert.doesNotMatch(html, /@babel\/standalone\/babel\.min\.js/, "frontend must not load unpinned Babel standalone");
   assert.match(html, /check_in_result/, "frontend should persist sprint check-ins");
   assert.match(html, /micro_task_plan/, "frontend should prefer structured micro-task plans");
   assert.match(html, /fallback_used/, "frontend should expose fallback state");
