@@ -2314,11 +2314,9 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     video.currentTime=0;
     video.volume=0;
     video.muted=true;
-    video.defaultMuted=true;
     const playPromise=video.play();
     if(playPromise&&playPromise.catch){
       playPromise.catch(()=>{
-        console.warn('[nextstep_video_play_blocked]', 'Video autoplay was blocked.');
         setVoiceStatus('Video autoplay paused. Tap the video to resume; text chat still works.');
       });
     }
@@ -2408,70 +2406,147 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
   const [inputText,setInputText]=useState('');
 
   return(
-    <div className="fixed inset-0 overflow-hidden" style={{background:'radial-gradient(circle at 50% 42%,#20153f 0%,#090814 68%,#050509 100%)'}}>
-      {!videoError ? (
-        <video
-          ref={videoRef}
-          key={activeVideo}
-          src={activeVideo}
-          autoPlay
-          loop={!speaking||holdReplyVideo}
-          muted
-          defaultMuted
-          playsInline
-          preload="auto"
-          onEnded={()=>{if(!holdReplyVideo) playIdleLoop();}}
-          onClick={retryVideoPlayback}
-          onError={()=>{setVideoError(true);setVoiceStatus('Video asset unavailable. Showing a static companion; text chat still works.');}}
-          className="absolute inset-0 z-0 h-full w-full object-contain"
-          style={{background:'transparent'}}
-        />
-      ) : (
-        <button
-          onClick={()=>{setVideoError(false);setActiveVideo(COMPANION_IDLE_VIDEO);}}
-          aria-label="Retry video playback"
-          className="absolute inset-0 z-0 flex items-center justify-center text-8xl"
-        >
-          {companion.emoji}
-        </button>
-      )}
+    <div className="min-h-screen flex flex-col video-bg relative overflow-hidden">
+      {/* Ambient particles */}
+      {[...Array(8)].map((_,i)=>(
+        <div key={i} className="absolute w-1 h-1 rounded-full bg-violet-400/40 pointer-events-none"
+          style={{left:`${10+i*11}%`,bottom:'10%',animation:`particleDrift ${3+i*0.7}s ease-out infinite`,animationDelay:`${i*0.8}s`,'--dx':`${(i%2===0?1:-1)*15}px`}}/>
+      ))}
 
-      <div className="fixed top-5 right-5 z-20 flex gap-2">
-        <button
-          onClick={onChatMode}
-          aria-label="Open chat mode"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/45 text-lg text-slate-950 shadow-lg shadow-black/25 backdrop-blur-md transition-all hover:bg-white/75 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50"
-        >
-          💬
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4 z-10 relative">
+        <button onClick={onChatMode} className="glass rounded-xl px-4 py-2 text-sm text-white/60 hover:text-white transition-colors border border-white/10">
+          ← Chat Mode
         </button>
-        <button
-          onClick={onViewMemory}
-          aria-label="Open memory"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/45 text-lg text-slate-950 shadow-lg shadow-black/25 backdrop-blur-md transition-all hover:bg-white/75 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/50"
-        >
-          🧠
+        <div className="flex items-center gap-2 glass rounded-full px-3 py-1.5 border border-violet-400/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 anim-bounce-soft"/>
+          <span className="text-xs font-semibold text-violet-300">Video Companion Mode · {currentState.label}</span>
+        </div>
+        <button onClick={onViewMemory} className="glass rounded-xl px-4 py-2 text-sm text-white/60 hover:text-white transition-colors border border-white/10">
+          Memory →
         </button>
       </div>
 
-      {voice.sup ? (
-        <button
-          onClick={voice.listening?voice.stop:voice.start}
-          aria-label={voice.listening?'Stop listening':'Start listening'}
-          className={`fixed bottom-5 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full text-2xl shadow-2xl transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/60
-            ${voice.listening
-              ? 'bg-red-500 text-white shadow-red-500/50'
-              : 'bg-white/88 text-slate-950 border border-white/80 backdrop-blur-md shadow-black/35'}`}
-        >
-          {voice.listening?'⏹':'🎤'}
-        </button>
-      ):(
-        <button
-          disabled
-          aria-label="Microphone unavailable"
-          className="fixed bottom-5 right-5 z-20 flex h-14 w-14 cursor-not-allowed items-center justify-center rounded-full border border-white/30 bg-white/35 text-2xl text-slate-700 backdrop-blur-md"
-        >
-          🎤
-        </button>
+      {/* Main character stage */}
+      <div className="flex-1 flex flex-col items-center justify-end relative z-10 px-4">
+        <div className="w-full max-w-md" style={{height:'65vh',position:'relative'}}>
+          <div className="w-full h-full flex items-center justify-center relative acg-stage">
+            <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse 65% 55% at 50% 80%,rgba(124,58,237,0.24) 0%,transparent 72%)'}}/>
+            {!videoError ? (
+              <video
+                ref={videoRef}
+                key={activeVideo}
+                src={activeVideo}
+                autoPlay
+                loop={!speaking||holdReplyVideo}
+                muted
+                playsInline
+                preload="auto"
+                onEnded={()=>{if(!holdReplyVideo) playIdleLoop();}}
+                onClick={retryVideoPlayback}
+                onError={()=>{setVideoError(true);setVoiceStatus('Video asset unavailable. Showing a static companion; text chat still works.');}}
+                className="relative z-10 h-full max-h-full max-w-full rounded-3xl object-contain shadow-2xl border border-violet-300/20"
+                style={{filter:`drop-shadow(0 0 ${speaking?'44px':'24px'} ${speaking?'rgba(139,92,246,0.72)':'rgba(139,92,246,0.42)'})`}}
+              />
+            ) : (
+              <button onClick={()=>{setVideoError(false);setActiveVideo(COMPANION_IDLE_VIDEO);}} className="relative z-10 h-full w-full flex flex-col gap-4 items-center justify-center rounded-3xl border border-violet-300/20 bg-violet-500/10 text-8xl">
+                {companion.emoji}
+                <span className="text-xs font-bold text-violet-100">Video unavailable. Tap to retry the idle loop.</span>
+              </button>
+            )}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 glass rounded-full px-3 py-1 text-xs font-bold text-violet-100 border border-violet-300/20">
+              {speaking ? `Playing ${videoLabel}` : 'Idle loop'}
+            </div>
+            {speaking&&(
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 items-end h-8">
+                {[0,1,2,3,4].map(i=><div key={i} className="wave-bar" style={{animationDelay:`${i*0.1}s`}}/>)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Companion name tag */}
+        <div className="flex items-center gap-2 mb-4 glass rounded-full px-4 py-2 border border-white/10">
+          <span>{currentState.emoji}</span>
+          <span className="text-sm font-black text-white">{companion.name}</span>
+          <span className="text-xs text-white/40">·</span>
+          <span className="text-xs text-white/50">{companion.type}</span>
+          {lastResult&&<><span className="text-xs text-white/40">·</span><span className={`text-xs font-semibold ${runtimeFallback?'text-amber-300':'text-green-300'}`}>{runtimeFallback?'Runtime fallback':(lastResult.runtime_source||'openai')}</span></>}
+          {speaking&&<span className="text-xs font-bold text-violet-300 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-violet-400 anim-bounce-soft"/>Speaking…</span>}
+        </div>
+
+        {runtimeFallback&&(
+          <div className="mb-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100">
+            {getRuntimeFallbackMessage(lastResult)}
+          </div>
+        )}
+
+        {/* Subtitle */}
+        <div className={`w-full max-w-lg min-h-14 mb-4 text-center px-4 transition-all duration-300 ${showSub?'opacity-100':'opacity-0'}`}>
+          {subtitle&&(
+            <p className="glass rounded-2xl px-4 py-3 text-sm text-white/85 font-medium leading-relaxed border border-white/10 inline-block max-w-full">
+              {subtitle}
+            </p>
+          )}
+          {voiceStatus&&(
+            <p className="mt-2 text-xs font-semibold text-violet-200/80">
+              {voiceStatus}
+            </p>
+          )}
+          {pendingVoicePlay&&(
+            <button
+              onClick={()=>{const play=pendingVoicePlay;setVoiceStatus('Fish voice is playing...');play();}}
+              className="mt-3 rounded-full bg-violet-500 px-5 py-2 text-xs font-black text-white shadow-lg hover:bg-violet-400 transition-colors"
+            >
+              🔊 Play voice
+            </button>
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-col items-center gap-4 pb-8 w-full max-w-xs">
+          {/* Mic button */}
+          {voice.sup ? (
+            <button onClick={voice.listening?voice.stop:voice.start}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all
+                ${voice.listening
+                  ? 'bg-red-500 scale-110 shadow-red-500/50 anim-glow-pulse'
+                  : 'glass border-2 border-violet-400/50 text-white hover:scale-105 hover:border-violet-400'}`}>
+              {voice.listening?'⏹':'🎤'}
+            </button>
+          ):(
+            <button disabled className="w-16 h-16 rounded-full flex items-center justify-center text-2xl glass border border-white/10 text-white/20 cursor-not-allowed">🎤</button>
+          )}
+
+          <p className="text-xs text-white/40 text-center">
+            {voice.listening ? 'Listening… speak now' : speaking ? 'Companion is speaking…' : 'Speak to your companion'}
+          </p>
+
+          {/* Voice error fallback */}
+          {voice.err&&<p className="text-xs text-red-300/80 text-center bg-red-500/10 border border-red-400/20 rounded-xl px-3 py-2">{voice.err}</p>}
+
+          {/* Text input fallback */}
+          <div className="flex gap-2 w-full">
+            <input value={inputText} onChange={e=>setInputText(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter'){handleSend(inputText);setInputText('');}}}
+              placeholder="Or type here…"
+              className="flex-1 glass border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-violet-500/40 bg-transparent"/>
+            <button onClick={()=>{handleSend(inputText);setInputText('');}} disabled={!inputText.trim()||speaking}
+              className={`px-3 py-2 rounded-xl text-white text-xs font-bold transition-all ${inputText.trim()&&!speaking?`bg-gradient-to-r ${COMPANIONS[companion.scenario].btnCls}`:'bg-white/10 text-white/30'}`}>
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Last adaptive mode — small bottom-right indicator */}
+      {lastResult&&(
+        <div className="absolute bottom-4 right-4 glass rounded-xl p-3 text-xs max-w-48 z-20 border border-white/10">
+          <p className="text-white/30 font-bold uppercase tracking-wider mb-1">Mode</p>
+          <p className="text-violet-300 font-semibold">{lastResult.mode}</p>
+          <p className="text-white/60 mt-1 font-semibold">{currentState.emoji} {currentState.label}</p>
+          <p className="text-white/30 mt-1 text-[10px] leading-tight">{lastResult.detected_state}</p>
+        </div>
       )}
     </div>
   );
