@@ -16,6 +16,10 @@
 <p align="center">
   <a href="https://compagnon-eveil.vercel.app/">Live Demo</a>
   |
+  <a href="#opc-wave-1-snapshot">OPC Wave 1 Snapshot</a>
+  |
+  <a href="#demo-preview">Demo Preview</a>
+  |
   <a href="#english">English</a>
   |
   <a href="#中文">中文</a>
@@ -34,6 +38,26 @@
 
 ---
 
+## OPC Wave 1 Snapshot
+
+| Item | Yorimi Summary |
+| --- | --- |
+| Track | **Digital Culture** - AI+Entertainment / AI+Education |
+| Stage | **Wave 1: Idea / Specs** - scenario definition, business logic, executable requirements, and evaluation criteria |
+| Core scenario | Users create or select an AI character for ACGN, VTuber, indie game IP, original character, digital pet, study, and daily companionship scenes. Yorimi gives the character persona-consistent dialogue, lightweight memory, emotional/state feedback, micro-action guidance, and 3D desktop presence. |
+| Evaluation criteria | Persona consistency, onboarding completion, low-motivation response quality, memory usefulness, desktop-presence effect, creator interest, and early payment signal. Full criteria are in [01_Project_Specification_EN.md](./docs/submission/opc-2026-wave1/en/01_Project_Specification_EN.md). |
+| Current demo status | Web runtime prototype is deployed on the predecessor **Compagnon Éveil** domain and can run locally from this repo. Physical 3D desktop device proof is shown below. Creator Studio is a **planned Wave 2/3 creator-side prototype**, not claimed as a shipped feature. |
+
+> **Demo domain note:** Yorimi was previously named **Compagnon Éveil**, so the current live demo URL is still `https://compagnon-eveil.vercel.app/`. The repo, specs, and product direction are now Yorimi.
+
+## Demo Preview
+
+| Web Runtime Prototype | 3D Desktop Device Proof |
+| --- | --- |
+| <img src="./assets/web-demo-preview.png" alt="Yorimi Web runtime prototype screenshot" width="430" /><br />Live demo: [compagnon-eveil.vercel.app](https://compagnon-eveil.vercel.app/)<br />Local route: `http://127.0.0.1:3017/nextstep-companion.html`<br />The route filename is kept only for deployment/test compatibility. The current product identity is Yorimi. | <img src="./assets/hardware-demo.gif" alt="Yorimi 3D desktop hardware demo GIF" width="300" /><br />Hardware proof video: [assets/hardware-demo.mp4](./assets/hardware-demo.mp4) |
+
+Additional state videos used by the prototype: [idle loop](./assets/idle%20loop.mp4), [thinking](./assets/thinking.mp4), [remind](./assets/remind.mp4), [jump](./assets/jump.mp4), [turn around](./assets/turn_around.mp4), [confused](./assets/confused.mp4).
+
 ## English
 
 ### One-Line Pitch
@@ -48,7 +72,7 @@ Yorimi is an AI character presence product that combines:
 - Long-term memory and session context
 - Voice and emotional state feedback
 - Study, work, routine, and daily companionship
-- Creator IP interaction through Creator Studio
+- Planned Creator IP interaction through Creator Studio
 - 3D desktop companion device presentation
 
 It is designed for ACGN users, VTuber communities, indie game IPs, original character creators, and young users who want study and daily companionship. Yorimi fits the **Digital Culture** track as an **AI+Entertainment / AI+Education** application.
@@ -73,7 +97,7 @@ Unlike a normal chatbot, Yorimi also has a **3D desktop companion device demo**.
 
 ### Creator Studio
 
-Yorimi will provide Creator Studio for VTubers, illustrators, indie game teams, and original IP creators. Creators can upload character settings, worldview boundaries, tone samples, voice, and skins, turning their characters into interactive, operable, displayable, and monetizable AI character services.
+Yorimi is planned to provide Creator Studio for VTubers, illustrators, indie game teams, and original IP creators. In Wave 2/3, creators will be able to upload character settings, worldview boundaries, tone samples, voice, and skins, turning their characters into interactive, operable, displayable, and monetizable AI character services.
 
 ### Current Status
 
@@ -107,7 +131,9 @@ Submission folder: [docs/submission/opc-2026-wave1](./docs/submission/opc-2026-w
 
 - Live Web demo: https://compagnon-eveil.vercel.app/
 - Local route: `http://127.0.0.1:3017/nextstep-companion.html`
-- Device demo assets: [assets](./assets)
+- Hardware proof GIF: [assets/hardware-demo.gif](./assets/hardware-demo.gif)
+- Hardware proof video: [assets/hardware-demo.mp4](./assets/hardware-demo.mp4)
+- Device state demo assets: [assets](./assets)
 
 The local route keeps the predecessor filename for deployment compatibility. Yorimi is the current product identity.
 
@@ -156,6 +182,16 @@ Yorimi's predecessor project **Compagnon Éveil** was selected as a **UCWS Singa
 
 **Yorimi 是面向数字文化赛道的 AI 角色存在系统，把虚拟 IP 从“被观看的内容”升级为有记忆、有互动、有桌面在场感的 AI companion。**
 
+### OPC Wave 1 提交摘要
+
+| 项目 | Yorimi 摘要 |
+| --- | --- |
+| 赛道 | **数字文化** - AI+文娱 / AI+教育 |
+| 阶段 | **Wave 1: Idea / Specs** - 明确应用场景、业务逻辑、可执行需求与评测标准 |
+| 核心场景 | 用户创建或选择 AI 角色，用于 ACGN、VTuber、独立游戏 IP、原创角色、数字宠物、学习陪伴与日常陪伴。Yorimi 提供符合人设的对话、轻量记忆、情绪/状态反馈、micro-action 引导和 3D 桌面在场感。 |
+| 评测标准 | 人设一致性、角色创建完成率、低动力回应质量、记忆有效性、桌面在场感提升、创作者兴趣与早期付费信号。完整标准见 [01_项目说明文档.md](./docs/submission/opc-2026-wave1/zh/01_项目说明文档.md)。 |
+| 当前 Demo 状态 | Web runtime prototype 已部署在前身项目 **Compagnon Éveil** 域名，也可本地运行；3D 桌面设备实物证明已在上方 Demo Preview 展示；Creator Studio 是 **Wave 2/3 计划中的创作者端原型**，不是当前已上线功能。 |
+
 ### 项目定位
 
 Yorimi 是一款结合 **AI 角色互动系统** 与 **3D 桌面陪伴设备** 的 AI 角色存在产品，面向 ACGN、VTuber、独立游戏 IP、原创角色创作者与年轻用户，属于数字文化赛道的 **AI+文娱 / AI+教育** 应用。
@@ -170,7 +206,7 @@ Yorimi 是一款结合 **AI 角色互动系统** 与 **3D 桌面陪伴设备** �
 
 ### 创作者端
 
-Yorimi 将提供 Creator Studio，支持 VTuber、画师、独立游戏团队与原创 IP 创作者上传角色设定、世界观边界、语气风格、语音与皮肤，把自己的角色转化为可互动、可运营、可展示、可商业化的 AI 角色服务。
+Yorimi 计划在 Wave 2/3 提供 Creator Studio，支持 VTuber、画师、独立游戏团队与原创 IP 创作者上传角色设定、世界观边界、语气风格、语音与皮肤，把自己的角色转化为可互动、可运营、可展示、可商业化的 AI 角色服务。当前阶段将 Creator Studio 定义为创作者端产品方向与后续原型目标，而不是已上线功能。
 
 ### 当前阶段
 

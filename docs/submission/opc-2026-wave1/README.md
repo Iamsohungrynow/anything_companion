@@ -25,3 +25,12 @@ https://compagnon-eveil.vercel.app/
 
 Wave 1 focuses on application scenarios, core business logic, executable product requirements, and evaluation criteria. The current repository includes a deployable Web runtime prototype and 3D desktop device demo assets; Wave 2 will turn the existing runtime into the Yorimi MVP.
 
+## Demo Proof
+
+- Live Web runtime prototype: https://compagnon-eveil.vercel.app/<br />
+  The domain still uses the predecessor name **Compagnon Éveil**; the current product and submission identity are Yorimi.
+- Web runtime screenshot: [assets/web-demo-preview.png](../../../assets/web-demo-preview.png)
+- Hardware GIF preview: [assets/hardware-demo.gif](../../../assets/hardware-demo.gif)
+- Hardware proof video: [assets/hardware-demo.mp4](../../../assets/hardware-demo.mp4)
+- Device state videos: [idle loop](../../../assets/idle%20loop.mp4), [thinking](../../../assets/thinking.mp4), [remind](../../../assets/remind.mp4), [jump](../../../assets/jump.mp4), [turn around](../../../assets/turn_around.mp4), [confused](../../../assets/confused.mp4)
+

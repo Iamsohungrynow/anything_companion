@@ -73,6 +73,8 @@ Yorimi's desktop device follows a Pepper's Ghost-style reflective display route:
 
 Current local evidence assets:
 
+- [hardware-demo.gif](../../../../assets/hardware-demo.gif) - compressed README preview of the physical desktop device.
+- [hardware-demo.mp4](../../../../assets/hardware-demo.mp4) - source hardware proof video.
 - [idle loop.mp4](../../../../assets/idle%20loop.mp4)
 - [thinking.mp4](../../../../assets/thinking.mp4)
 - [remind.mp4](../../../../assets/remind.mp4)

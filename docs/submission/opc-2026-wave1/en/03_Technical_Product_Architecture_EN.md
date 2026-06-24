@@ -4,7 +4,7 @@
   <img src="../../../../assets/brand/yorimi-logo.png" alt="Yorimi Logo" width="220" />
 </p>
 
-Yorimi is not only a chatbot. It is a system for persona setup, ongoing interaction, user memory, action companionship, desktop display, and creator-side character operation.
+Yorimi is not only a chatbot. It is a system for persona setup, ongoing interaction, user memory, action companionship, desktop display, and planned creator-side character operation.
 
 ## 1. Architecture Overview
 
@@ -30,7 +30,7 @@ AI Character System
 Avatar / 3D Desktop Presence Layer
         |
         v
-Creator Studio
+Planned Creator Studio
 ```
 
 ## 2. Current Implementation
@@ -115,9 +115,9 @@ Wave 2/3 target:
 - Connect Web/App state to the device through a Device Bridge.
 - Support state-driven display, expression switching, and later local network/Bluetooth/WebSocket synchronization.
 
-## 7. Creator Studio Layer
+## 7. Planned Creator Studio Layer
 
-Creator Studio is the creator-side product surface for VTubers, illustrators, indie game teams, and original IP owners.
+Creator Studio is the planned creator-side product surface for VTubers, illustrators, indie game teams, and original IP owners. It is a Wave 2/3 prototype target, not a shipped feature in the current Wave 1 runtime.
 
 Planned modules:
 

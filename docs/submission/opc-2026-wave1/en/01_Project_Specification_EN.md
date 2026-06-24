@@ -41,9 +41,9 @@ Users create or select a character with name, personality, tone, world boundarie
 
 When a user says, "I have an exam tomorrow, but I am too tired to start," Yorimi first responds gently, then suggests one small concrete action such as opening notes, reviewing one formula, or entering a 10-minute sprint. After the sprint, the user checks in and Yorimi updates memory.
 
-### Creator IP Operation
+### Planned Creator IP Operation
 
-Creators can turn their characters into interactive AI services by uploading persona settings, worldview boundaries, tone samples, voice style, skins, and interaction rules. This lets character IP become an ongoing, operable, and monetizable service.
+In Wave 2/3, creators will be able to turn their characters into interactive AI services by uploading persona settings, worldview boundaries, tone samples, voice style, skins, and interaction rules. This is the planned creator-side expansion path for turning character IP into an ongoing, operable, and monetizable service.
 
 ### 3D Desktop Presence
 
@@ -59,7 +59,7 @@ Create/select character -> chat with persona -> record preferences and memory
 -> update memory -> increase retention
 ```
 
-Creator loop:
+Future creator loop:
 
 ```text
 Upload character assets -> launch interactive character
@@ -78,7 +78,7 @@ Upload character assets -> launch interactive character
 | FR-5 | Lightweight memory | Key preferences and interaction summaries can be reused across sessions |
 | FR-6 | Expression/state feedback | Conversation output can map to character state or expression tags |
 | FR-7 | 3D desktop display | Physical device can show preset character expressions/motions/states; real-time sync is a later target |
-| FR-8 | Creator Studio prototype | Creators can preview how uploaded persona/tone/skin settings become an interactive character |
+| FR-8 | Creator Studio prototype | Wave 2/3 prototype lets creators preview how uploaded persona/tone/skin settings become an interactive character |
 
 ## 7. Wave 1 Current Scope and Wave 2 MVP Target
 
