@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: nextstep-companion-demo
+    name: yorimi-demo
     runtime: node
     plan: free
     buildCommand: npm install

@@ -153,7 +153,7 @@ async function handleSessionReset(req, res, id) {
 function buildHealthPayload() {
   return {
     ok: true,
-    service: "nextstep-runtime",
+    service: "yorimi-runtime",
     version: packageJson.version,
     timestamp: new Date().toISOString(),
     host: HOST,

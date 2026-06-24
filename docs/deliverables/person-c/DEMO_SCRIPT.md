@@ -1,4 +1,4 @@
-# NextStep Companion — Demo Script
+# Yorimi — Demo Script
 **Target: 3 minutes | Sea × OpenAI Codex Hackathon**
 
 > *The final live speech may be slightly adjusted during the actual presentation, so the script does not need to be word-for-word final. But it should give us a clear and stable 3-minute demo story.*
@@ -19,7 +19,7 @@
 
 > "Most productivity tools push users to finish tasks.
 > Most AI companions keep users talking.
-> **NextStep Companion does something different.**
+> **Yorimi does something different.**
 > It first makes the user feel accompanied — when starting feels hard.
 > Then it gently turns that moment of companionship into one small action."
 
@@ -90,7 +90,7 @@ I have a finance quiz but I am tired and stuck.
 > Let's start with one small step.'
 > **This is the difference from a normal chatbot.
 > A normal chatbot gives you an answer.
-> NextStep Companion stays with you first —
+> Yorimi stays with you first —
 > then moves you into action.**"
 
 **Point to the Adaptive Mode Panel:**
@@ -131,7 +131,7 @@ I have a finance quiz but I am tired and stuck.
 
 **Action:** Click **"View Memory"** (or navigate to the memory page).
 
-> "After the session — this is what makes NextStep Companion different
+> "After the session — this is what makes Yorimi different
 > from a one-off chat."
 
 **Point to the memory card:**
@@ -196,7 +196,7 @@ I have a finance quiz but I am tired and stuck.
 > "The frontend calls one runtime endpoint. It returns structured state, mode, micro-tasks, memory, and trace — with mock fallback if OpenAI is unavailable."
 
 **"How is this different from ChatGPT?"**
-> "ChatGPT gives you an answer. NextStep gives you companionship first, then a small timed action, and remembers what helped you start."
+> "ChatGPT gives you an answer. Yorimi gives you companionship first, then a small timed action, and remembers what helped you start."
 
 **"What's the business model / who's the user?"**
 > "Students and young professionals who struggle to start studying or working. The companion personalizes over time — that's the retention hook."

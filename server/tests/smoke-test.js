@@ -23,7 +23,7 @@ async function main() {
 
     const health = await getJson("/api/health");
     assert.equal(health.ok, true);
-    assert.equal(health.service, "nextstep-runtime");
+    assert.equal(health.service, "yorimi-runtime");
     assert.ok(health.version);
     assert.ok(health.timestamp);
 

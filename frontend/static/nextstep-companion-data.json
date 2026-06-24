@@ -1,5 +1,5 @@
 {
-  "_project": "NextStep Companion MVP",
+  "_project": "Yorimi MVP Runtime Prototype",
   "_version": "v4",
   "_description": "AI-native adaptive companion engine — full data schema + mock responses. Replace generateChatResult() with real API call to go live.",
 

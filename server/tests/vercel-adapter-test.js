@@ -32,7 +32,7 @@ async function main() {
   const healthResponse = await invoke(health, { method: "GET", url: "/api/health" });
   assert.equal(healthResponse.statusCode, 200);
   assert.equal(healthResponse.json.ok, true);
-  assert.equal(healthResponse.json.service, "nextstep-runtime");
+  assert.equal(healthResponse.json.service, "yorimi-runtime");
 
   const scenariosResponse = await invoke(scenarios, { method: "GET", url: "/api/scenarios" });
   assert.equal(scenariosResponse.statusCode, 200);

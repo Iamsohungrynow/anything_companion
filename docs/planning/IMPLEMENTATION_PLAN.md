@@ -2,7 +2,7 @@
 
 ## 1. Product Scope
 
-Build NextStep Companion as a study-start companion for users who are stuck, tired, overwhelmed, or procrastinating.
+Build Yorimi as a study-start and character-presence companion for users who are stuck, tired, overwhelmed, or procrastinating.
 
 Keep the product focused:
 
@@ -501,7 +501,7 @@ Verification:
 
 Opening:
 
-> Most AI companions keep the user talking. NextStep Companion helps the user start. It detects when someone is stuck, switches into the right mode, creates a tiny action plan, checks in, and remembers what helped.
+> Most AI companions keep the user talking. Yorimi helps the user start. It detects when someone is stuck, switches into the right mode, creates a tiny action plan, checks in, and remembers what helped.
 
 Step 1:
 

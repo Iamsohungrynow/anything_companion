@@ -1,5 +1,5 @@
 // ============================================================
-// Core type definitions for NextStep Companion
+// Core type definitions for Yorimi
 // ============================================================
 
 export type Scenario = 'study' | 'acg' | 'pet';

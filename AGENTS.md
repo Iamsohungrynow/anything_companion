@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-NextStep Companion is an adaptive AI companion demo for study, work, emotional check-ins, routines, and object-based companions.
+Yorimi is an adaptive AI character presence demo for study, work, emotional check-ins, routines, object-based companions, and creator IP interaction.
 
 The companion must reply naturally from:
 - the user's latest message
