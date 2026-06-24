@@ -1,7 +1,7 @@
 {
   "_project": "Yorimi MVP Runtime Prototype",
   "_version": "v4",
-  "_description": "AI-native adaptive companion engine — full data schema + mock responses. Replace generateChatResult() with real API call to go live.",
+  "_description": "Yorimi adaptive companion runtime config — full data schema, scenario metadata, and deterministic fallback examples. Live chat uses /api/chat when the backend and OPENAI_API_KEY are configured.",
 
   "companions": {
     "study": {
@@ -59,6 +59,7 @@
   },
 
   "mock_responses": {
+    "_description": "Deterministic fallback examples used only when the OpenAI runtime is unavailable, missing, or explicitly forced into local fallback mode.",
     "study": {
       "low_motivation": {
         "_trigger_keywords": ["tired","procrastinat","study","exam","finance","boring","hard","difficult","can't","stressed","overwhelm","lazy","stuck","hate","ugh","not feeling"],
@@ -151,8 +152,8 @@
   ],
 
   "api_integration_guide": {
-    "_description": "How to replace mock AI with a real LLM API",
-    "target_function": "generateChatResult(scenario, userMessage) → ChatResult",
+    "_description": "Current runtime contract. The browser calls /api/chat; the local/Vercel server routes that request to OpenAI when configured and to marked fallback otherwise.",
+    "target_function": "generateChatResult(companion, userMessage, channel, messages) -> ChatResult via /api/chat",
     "openai_example": {
       "endpoint": "https://api.openai.com/v1/chat/completions",
       "model": "gpt-4o",
