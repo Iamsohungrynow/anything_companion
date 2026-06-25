@@ -8,6 +8,7 @@ const {
   FISH_AUDIO_API_KEY,
   FISH_AUDIO_REFERENCE_ID,
   FISH_AUDIO_TIMEOUT_MS,
+  GROQ_API_KEY,
   HOST,
   HTML_FILE,
   MAX_SESSIONS,
@@ -15,6 +16,8 @@ const {
   PORT,
   ROOT_DIR,
   SESSION_TTL_MS,
+  STT_MODEL,
+  STT_PROVIDER,
   USE_MOCK_AI,
   VERCEL_HOST_SUFFIXES,
 } = require("../config");
@@ -35,6 +38,7 @@ async function handleHttpRequest(req, res) {
     if (url.pathname === "/api/session") return handleSession(req, res);
     if (url.pathname === "/api/chat") return handleChat(req, res);
     if (url.pathname === "/api/tts") return handleTts(req, res);
+    if (url.pathname === "/api/stt") return handleStt(req, res);
 
     const memoryMatch = url.pathname.match(/^\/api\/session\/([^/]+)\/memory$/);
     if (memoryMatch) return handleSessionMemory(req, res, memoryMatch[1]);
@@ -133,6 +137,62 @@ async function handleTts(req, res) {
   if (!allowMethods(req, res, ["POST"])) return;
   const body = await readJson(req);
   await proxyFishAudioTts(body, res);
+}
+
+async function handleStt(req, res) {
+  if (!allowMethods(req, res, ["POST"])) return;
+  const body = await readJson(req);
+
+  const { audio, mimeType = "audio/webm" } = body || {};
+  if (!audio || typeof audio !== "string") {
+    sendJson(res, 400, { error: "audio (base64 string) is required." });
+    return;
+  }
+
+  const provider = STT_PROVIDER;
+  const model = STT_MODEL;
+  const apiKey = provider === "openai" ? process.env.OPENAI_API_KEY : GROQ_API_KEY;
+  const url = provider === "openai"
+    ? "https://api.openai.com/v1/audio/transcriptions"
+    : "https://api.groq.com/openai/v1/audio/transcriptions";
+
+  if (!apiKey) {
+    sendJson(res, 503, { error: `${provider === "openai" ? "OPENAI" : "GROQ"}_API_KEY is not configured.` });
+    return;
+  }
+
+  const audioBuffer = Buffer.from(audio, "base64");
+  const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
+
+  const formData = new FormData();
+  formData.append("file", new Blob([audioBuffer], { type: mimeType }), `audio.${ext}`);
+  formData.append("model", model);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      sendJson(res, 502, { error: `STT provider error: ${response.status} ${errBody.slice(0, 200)}` });
+      return;
+    }
+
+    const data = await response.json();
+    sendJson(res, 200, { text: data.text || "", provider, model });
+  } catch (error) {
+    const isTimeout = error.name === "AbortError";
+    sendJson(res, isTimeout ? 504 : 502, { error: isTimeout ? "STT timed out." : "STT request failed." });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function handleSessionMemory(req, res, id) {
@@ -455,6 +515,7 @@ module.exports = {
   handleSession,
   handleSessionMemory,
   handleSessionReset,
+  handleStt,
   handleTts,
   sendJson,
 };

@@ -45,6 +45,7 @@ async function runTurn(body) {
       runtimeResult = applyRuntimeGuards(input, runtimeResult, session);
       runtimeResult = ensureVisibleTaskFormat(runtimeResult);
     } catch (error) {
+      console.error("[openai_adapter] failed, using mock fallback:", error?.message || error);
       fallbackUsed = true;
       runtimeResult = runMockEngine(input, companionData, session);
       runtimeResult.trace.unshift({

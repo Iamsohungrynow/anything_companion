@@ -1065,40 +1065,70 @@ function speakBrowserText(text,onEnd,voiceWaits=0,runId=++speechRunId){
 function stopSpeaking(){try{speechRunId++;if(activeTtsSource){try{activeTtsSource.stop(0);}catch(e){}activeTtsSource=null;}if(activeTtsAudio){activeTtsAudio.pause();activeTtsAudio.src='';activeTtsAudio=null;}if(ttsSup) window.speechSynthesis.cancel();}catch(e){}}
 
 /* =================================================================
-   VOICE INPUT HOOK (useVoiceInput)
+   VOICE INPUT HOOK (useVoiceInput) — push-to-talk via /api/stt
    ================================================================= */
 function useVoiceInput(onReady){
   const [listening,setListening]=useState(false);
   const [interim,setInterim]=useState('');
   const [err,setErr]=useState(null);
-  const ref=useRef(null);
-  const sup=typeof window!=='undefined'&&('SpeechRecognition' in window||'webkitSpeechRecognition' in window);
-  useEffect(()=>()=>{ref.current&&ref.current.abort()},[]);
+  const recorderRef=useRef(null);
+  const chunksRef=useRef([]);
+  const streamRef=useRef(null);
+  const sup=typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined';
+
+  useEffect(()=>()=>{
+    if(recorderRef.current&&recorderRef.current.state!=='inactive') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t=>t.stop());
+  },[]);
+
   const start=useCallback(()=>{
-    if(!sup){setErr('Voice input is not supported in this browser. Please type instead.');return;}
-    try{
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      const r=new SR(); r.lang='en-US'; r.interimResults=true; r.maxAlternatives=1; r.continuous=false;
-      r.onstart=()=>{setListening(true);setErr(null);setInterim('');};
-      r.onresult=e=>{
-        let fin='',tmp='';
-        for(let i=e.resultIndex;i<e.results.length;i++){
-          if(e.results[i].isFinal) fin+=e.results[i][0].transcript;
-          else tmp+=e.results[i][0].transcript;
-        }
-        setInterim(tmp);
-        if(fin&&onReady) onReady(fin);
-      };
-      r.onerror=e=>{
-        setErr(e.error==='not-allowed'?'Microphone access denied. Please allow and try again.':
-              e.error==='no-speech'?'No speech detected. Try again.':'Voice input failed. Please type your message.');
-        setListening(false);setInterim('');
-      };
-      r.onend=()=>{setListening(false);setInterim('');};
-      ref.current=r; r.start();
-    }catch(e){setErr('Voice input failed. Please type your message.');setListening(false);}
-  },[sup,onReady]);
-  const stop=useCallback(()=>{ref.current&&ref.current.stop();ref.current=null;setListening(false);setInterim('');});
+    if(listening||!sup) return;
+    setErr(null);
+    chunksRef.current=[];
+    navigator.mediaDevices.getUserMedia({audio:true})
+      .then(stream=>{
+        streamRef.current=stream;
+        const mimeType=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+        const recorder=new MediaRecorder(stream,{mimeType});
+        recorderRef.current=recorder;
+        recorder.ondataavailable=e=>{if(e.data.size>0) chunksRef.current.push(e.data);};
+        recorder.onstop=()=>{
+          streamRef.current?.getTracks().forEach(t=>t.stop());
+          const blob=new Blob(chunksRef.current,{type:mimeType});
+          if(!blob.size) return;
+          const reader=new FileReader();
+          reader.onload=()=>{
+            const base64=reader.result.split(',')[1];
+            fetch('/api/stt',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({audio:base64,mimeType})})
+              .then(r=>r.json())
+              .then(d=>{
+                setInterim('');
+                if(d.text&&onReady) onReady(d.text);
+                else if(d.error) setErr(d.error);
+              })
+              .catch(()=>setErr('Voice input failed. Please type your message.'));
+          };
+          reader.readAsDataURL(blob);
+        };
+        recorder.start();
+        setListening(true);
+        setInterim('Recording…');
+      })
+      .catch(e=>{
+        setErr(e.name==='NotAllowedError'?'Microphone access denied. Please allow and try again.':
+          'Voice input failed. Please type your message.');
+      });
+  },[listening,sup,onReady]);
+
+  const stop=useCallback(()=>{
+    if(recorderRef.current&&recorderRef.current.state!=='inactive'){
+      recorderRef.current.stop();
+      setListening(false);
+      setInterim('Transcribing…');
+    }
+  },[]);
+
   return{listening,interim,start,stop,err,sup};
 }
 
@@ -2031,7 +2061,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const currentState=getCompanionStateInfo(typing?'thinking':lastResult?.companion_state);
   const runtimeFallback=Boolean(lastResult?.fallback_used);
 
-  const onVoice=useCallback(t=>setInput(t),[]);
+  const onVoice=useCallback(t=>{if(t.trim()) send(t.trim());},[]);
   const voice=useVoiceInput(onVoice);
 
   const handleMessageScroll=e=>{
@@ -2240,8 +2270,9 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
         {/* Input bar */}
         <div className="flex gap-2 items-end">
           {voice.sup?(
-            <button onClick={voice.listening?voice.stop:voice.start}
-              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all
+            <button onPointerDown={voice.start} onPointerUp={voice.stop} onPointerLeave={voice.stop} onPointerCancel={voice.stop}
+              style={{touchAction:'none'}}
+              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all select-none
                 ${voice.listening?'bg-red-500 text-white anim-bounce-soft':'glass border border-white/20 text-white/60 hover:bg-white/10'}`}>
               {voice.listening?'⏹':'🎤'}
             </button>
@@ -2507,8 +2538,9 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
         <div className="flex flex-col items-center gap-4 pb-8 w-full max-w-xs">
           {/* Mic button */}
           {voice.sup ? (
-            <button onClick={voice.listening?voice.stop:voice.start}
-              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all
+            <button onPointerDown={voice.start} onPointerUp={voice.stop} onPointerLeave={voice.stop} onPointerCancel={voice.stop}
+              style={{touchAction:'none'}}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all select-none
                 ${voice.listening
                   ? 'bg-red-500 scale-110 shadow-red-500/50 anim-glow-pulse'
                   : 'glass border-2 border-violet-400/50 text-white hover:scale-105 hover:border-violet-400'}`}>
