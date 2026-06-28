@@ -26,7 +26,7 @@ export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInp
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop();
     }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
   }, []);
 
   const startListening = useCallback(() => {
@@ -49,7 +49,7 @@ export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInp
         };
 
         recorder.onstop = () => {
-          streamRef.current?.getTracks().forEach((t) => t.stop());
+          streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
           const blob = new Blob(chunksRef.current, { type: mimeType });
           if (!blob.size) return;
 
@@ -65,7 +65,18 @@ export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInp
             .then((data) => {
               setInterimTranscript('');
               if (data.text) onTranscript(data.text);
-              else setError(data.error || 'Transcription failed.');
+              else {
+                const details = [
+                  data?.provider ? `provider=${data.provider}` : null,
+                  data?.model ? `model=${data.model}` : null,
+                  typeof data?.provider_status === 'number' ? `provider_status=${data.provider_status}` : null,
+                ].filter(Boolean).join(' ');
+                const providerBody = typeof data?.provider_body === 'string' && data.provider_body.trim()
+                  ? ` ${data.provider_body.trim()}`
+                  : '';
+                const suffix = details ? ` (${details})${providerBody}` : providerBody;
+                setError(`${data.error || 'Transcription failed.'}${suffix}`);
+              }
             })
             .catch(() => setError('STT request failed.'));
         };

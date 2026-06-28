@@ -1,7 +1,8 @@
 const { USE_MOCK_AI } = require("../../config");
 const { companionData } = require("../../data");
 const { detectIntent, extractConceptSubject, extractGoalSubject, runMockEngine } = require("../mock/mockEngine");
-const { runOpenAI } = require("../openai/client");
+// const { runOpenAI } = require("../openai/client"); // overseas — disabled on this branch
+const { runDoubao } = require("../doubao/client");
 const { normalizeRuntimeResult, validateChatRequest } = require("../../schemas");
 const { ensureSession, getSession, updateSessionAfterTurn } = require("../../store/sessionStore");
 
@@ -20,24 +21,26 @@ async function runTurn(body) {
 
   if (!USE_MOCK_AI) {
     try {
-      const openAIResult = await runOpenAI({ input, session });
-      runtimeResult = normalizeRuntimeResult(openAIResult, {
+      const doubaoResult = await runDoubao({ input, session });
+      runtimeResult = normalizeRuntimeResult(doubaoResult, {
         session_id: session.id,
         message: input.message,
         defaultMode: inferDefaultMode(input),
         fallback_used: false,
       });
+      runtimeResult.runtime_source = "doubao";
       const repairContext = buildRepairContext(input, runtimeResult);
       if (repairContext) {
-        const repairedResult = await runOpenAI({ input, session, repairContext });
+        const repairedResult = await runDoubao({ input, session, repairContext });
         runtimeResult = normalizeRuntimeResult(repairedResult, {
           session_id: session.id,
           message: input.message,
           defaultMode: inferDefaultMode(input),
           fallback_used: false,
         });
+        runtimeResult.runtime_source = "doubao";
         runtimeResult.trace.push({
-          step: "openai_repair",
+          step: "doubao_repair",
           status: "complete",
           summary: repairContext.reason,
         });
@@ -45,13 +48,13 @@ async function runTurn(body) {
       runtimeResult = applyRuntimeGuards(input, runtimeResult, session);
       runtimeResult = ensureVisibleTaskFormat(runtimeResult);
     } catch (error) {
-      console.error("[openai_adapter] failed, using mock fallback:", error?.message || error);
+      console.error("[doubao_adapter] failed, using mock fallback:", error?.message || error);
       fallbackUsed = true;
       runtimeResult = runMockEngine(input, companionData, session);
       runtimeResult.trace.unshift({
-        step: "openai_adapter",
+        step: "doubao_adapter",
         status: "fallback",
-        summary: "OpenAI adapter failed; deterministic fallback used.",
+        summary: "Doubao adapter failed; deterministic fallback used.",
       });
     }
   } else {
@@ -63,7 +66,7 @@ async function runTurn(body) {
 
   runtimeResult.session_id = session.id;
   runtimeResult.fallback_used = fallbackUsed || runtimeResult.fallback_used;
-  runtimeResult.runtime_source = runtimeResult.fallback_used ? "mock" : "openai";
+  if (runtimeResult.fallback_used) runtimeResult.runtime_source = "mock";
 
   const updatedSession = updateSessionAfterTurn(session, input, runtimeResult);
 

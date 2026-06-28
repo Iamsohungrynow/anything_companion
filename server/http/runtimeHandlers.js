@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { randomUUID } = require("crypto");
 const path = require("path");
 const packageJson = require("../../package.json");
 const {
@@ -8,7 +9,6 @@ const {
   FISH_AUDIO_API_KEY,
   FISH_AUDIO_REFERENCE_ID,
   FISH_AUDIO_TIMEOUT_MS,
-  GROQ_API_KEY,
   HOST,
   HTML_FILE,
   MAX_SESSIONS,
@@ -16,8 +16,11 @@ const {
   PORT,
   ROOT_DIR,
   SESSION_TTL_MS,
-  STT_MODEL,
   STT_PROVIDER,
+  STT_MODEL,
+  VOLC_APP_ID,
+  VOLC_ACCESS_TOKEN,
+  VOLC_ASR_CLUSTER,
   USE_MOCK_AI,
   VERCEL_HOST_SUFFIXES,
 } = require("../config");
@@ -122,12 +125,10 @@ async function handleChat(req, res) {
   console.log(
     "[api/chat]",
     JSON.stringify({
-      openai_configured: Boolean(process.env.OPENAI_API_KEY),
       mock_forced: USE_MOCK_AI,
-      runtime_source: result?.runtime_source || (result?.fallback_used ? "mock" : "openai"),
+      runtime_source: result?.runtime_source,
       intent: result?.intent,
       mode: result?.mode,
-      model: OPENAI_MODEL,
     })
   );
   sendJson(res, 200, result);
@@ -149,50 +150,123 @@ async function handleStt(req, res) {
     return;
   }
 
-  const provider = STT_PROVIDER;
-  const model = STT_MODEL;
-  const apiKey = provider === "openai" ? process.env.OPENAI_API_KEY : GROQ_API_KEY;
-  const url = provider === "openai"
-    ? "https://api.openai.com/v1/audio/transcriptions"
-    : "https://api.groq.com/openai/v1/audio/transcriptions";
-
-  if (!apiKey) {
-    sendJson(res, 503, { error: `${provider === "openai" ? "OPENAI" : "GROQ"}_API_KEY is not configured.` });
-    return;
-  }
-
-  const audioBuffer = Buffer.from(audio, "base64");
-  const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : "webm";
-
-  const formData = new FormData();
-  formData.append("file", new Blob([audioBuffer], { type: mimeType }), `audio.${ext}`);
-  formData.append("model", model);
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      sendJson(res, 502, { error: `STT provider error: ${response.status} ${errBody.slice(0, 200)}` });
-      return;
+    if (STT_PROVIDER === "openai") {
+      await sttOpenAI(res, audio, mimeType, controller);
+    } else {
+      await sttVolcano(res, audio, mimeType, controller);
     }
-
-    const data = await response.json();
-    sendJson(res, 200, { text: data.text || "", provider, model });
   } catch (error) {
     const isTimeout = error.name === "AbortError";
-    sendJson(res, isTimeout ? 504 : 502, { error: isTimeout ? "STT timed out." : "STT request failed." });
+    sendJson(res, isTimeout ? 504 : 502, {
+      error: isTimeout ? "STT timed out." : "STT request failed.",
+      provider: STT_PROVIDER,
+      error_name: error?.name,
+      error_message: error?.message,
+    });
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function sttOpenAI(res, audio, mimeType, controller) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    sendJson(res, 503, { error: "OPENAI_API_KEY is not configured." });
+    return;
+  }
+
+  const audioBuffer = Buffer.from(audio, "base64");
+  const baseMime = mimeType.split(";")[0].trim();
+  const ext = baseMime.includes("mp4") ? "mp4" : baseMime.includes("ogg") ? "ogg" : "webm";
+
+  const formData = new FormData();
+  formData.append("file", new Blob([audioBuffer], { type: baseMime }), `audio.${ext}`);
+  formData.append("model", STT_MODEL);
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    signal: controller.signal,
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    sendJson(res, 502, {
+      error: `STT provider error (${response.status}).`,
+      provider: "openai",
+      model: STT_MODEL,
+      provider_status: response.status,
+      provider_body: errBody.slice(0, 200),
+    });
+    return;
+  }
+
+  const data = await response.json();
+  sendJson(res, 200, { text: data.text || "", provider: "openai", model: STT_MODEL });
+}
+
+async function sttVolcano(res, audio, mimeType, controller) {
+  if (!VOLC_APP_ID || !VOLC_ACCESS_TOKEN) {
+    sendJson(res, 503, { error: "VOLC_APP_ID and VOLC_ACCESS_TOKEN are required for Volcano STT." });
+    return;
+  }
+
+  const baseMime = mimeType.split(";")[0].trim();
+  const format = baseMime.includes("mp4") ? "mp4" : baseMime.includes("ogg") ? "ogg" : "webm";
+  const codec = mimeType.includes("opus") ? "opus" : "default";
+
+  const payload = {
+    app: { appid: VOLC_APP_ID, token: VOLC_ACCESS_TOKEN, cluster: VOLC_ASR_CLUSTER },
+    user: { uid: "companion_stt" },
+    request: {
+      reqid: randomUUID(),
+      nbest: 1,
+      workflow: "audio_in,resample,partition,vad,fe,decode,itn,nlu_punctuation",
+      show_utterances: false,
+      result_type: "full",
+      sequence: -1,
+    },
+    audio: { format, codec, sample_rate: 16000, bits: 16, channel: 1, language: "zh-CN", audio_data: audio },
+  };
+
+  const response = await fetch("https://openspeech.bytedance.com/api/v1/asr", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${VOLC_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    sendJson(res, 502, {
+      error: `STT provider error (${response.status}).`,
+      provider: "volcano",
+      provider_status: response.status,
+      provider_body: errBody.slice(0, 200),
+    });
+    return;
+  }
+
+  const data = await response.json();
+  if (data.code !== 1000) {
+    sendJson(res, 502, {
+      error: `Volcano STT error: ${data.message || "unknown"}`,
+      provider: "volcano",
+      provider_code: data.code,
+    });
+    return;
+  }
+
+  const text = (data.utterances || []).map((u) => u.text).join("").trim();
+  sendJson(res, 200, { text, provider: "volcano", cluster: VOLC_ASR_CLUSTER });
 }
 
 async function handleSessionMemory(req, res, id) {
@@ -219,6 +293,9 @@ function buildHealthPayload() {
     host: HOST,
     allowed_hosts: ALLOWED_HOSTS,
     openai_configured: Boolean(process.env.OPENAI_API_KEY),
+    stt_provider: STT_PROVIDER,
+    stt_volcano_configured: Boolean(VOLC_APP_ID && VOLC_ACCESS_TOKEN),
+    stt_openai_model: STT_MODEL,
     fish_audio_configured: Boolean(FISH_AUDIO_API_KEY && FISH_AUDIO_REFERENCE_ID),
     mock_forced: USE_MOCK_AI,
     model: OPENAI_MODEL,
@@ -237,7 +314,7 @@ function allowMethods(req, res, methods) {
 function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    sendJson(res, 403, { ok: false, error: "Origin not allowed." });
+    sendJson(res, 403, { ok: false, error: `Origin not allowed: ${origin}` });
     return false;
   }
 

@@ -30,9 +30,14 @@ const OPENAI_TIMEOUT_MS = parsePositiveInteger(process.env.OPENAI_TIMEOUT_MS, 12
 const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY || "";
 const FISH_AUDIO_REFERENCE_ID = process.env.FISH_AUDIO_REFERENCE_ID || "";
 const FISH_AUDIO_TIMEOUT_MS = parsePositiveInteger(process.env.FISH_AUDIO_TIMEOUT_MS, 20000);
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const STT_PROVIDER = process.env.STT_PROVIDER || "groq";
-const STT_MODEL = process.env.STT_MODEL || "whisper-large-v3-turbo";
+const STT_PROVIDER = process.env.STT_PROVIDER || "volcano";
+const STT_MODEL = process.env.STT_MODEL || "whisper-1";
+const VOLC_APP_ID = process.env.VOLC_APP_ID || "";
+const VOLC_ACCESS_TOKEN = process.env.VOLC_ACCESS_TOKEN || "";
+const VOLC_ASR_CLUSTER = process.env.VOLC_ASR_CLUSTER || "volcengine_streaming_common";
+const VOLC_ARK_API_KEY = process.env.VOLC_ARK_API_KEY || "";
+const VOLC_CHAT_MODEL = process.env.VOLC_CHAT_MODEL || "doubao-seed-evolving";
+const VOLC_CHAT_TIMEOUT_MS = parsePositiveInteger(process.env.VOLC_CHAT_TIMEOUT_MS, 20000);
 const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "true";
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
 const SESSION_TTL_MS = parsePositiveInteger(process.env.SESSION_TTL_MS, 1000 * 60 * 60 * 8);
@@ -82,9 +87,14 @@ module.exports = {
   FISH_AUDIO_API_KEY,
   FISH_AUDIO_REFERENCE_ID,
   FISH_AUDIO_TIMEOUT_MS,
-  GROQ_API_KEY,
   STT_PROVIDER,
   STT_MODEL,
+  VOLC_APP_ID,
+  VOLC_ACCESS_TOKEN,
+  VOLC_ASR_CLUSTER,
+  VOLC_ARK_API_KEY,
+  VOLC_CHAT_MODEL,
+  VOLC_CHAT_TIMEOUT_MS,
   USE_MOCK_AI,
   MAX_SESSIONS,
   SESSION_TTL_MS,

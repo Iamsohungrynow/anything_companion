@@ -1105,7 +1105,16 @@ function useVoiceInput(onReady){
               .then(d=>{
                 setInterim('');
                 if(d.text&&onReady) onReady(d.text);
-                else if(d.error) setErr(d.error);
+                else if(d.error){
+                  const details=[
+                    d?.provider?`provider=${d.provider}`:null,
+                    d?.model?`model=${d.model}`:null,
+                    typeof d?.provider_status==='number'?`provider_status=${d.provider_status}`:null
+                  ].filter(Boolean).join(' ');
+                  const providerBody=typeof d?.provider_body==='string'&&d.provider_body.trim()?` ${d.provider_body.trim()}`:'';
+                  const suffix=details?` (${details})${providerBody}`:providerBody;
+                  setErr(`${d.error}${suffix}`);
+                }
               })
               .catch(()=>setErr('Voice input failed. Please type your message.'));
           };
