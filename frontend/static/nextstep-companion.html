@@ -1071,34 +1071,115 @@ function useVoiceInput(onReady){
   const [listening,setListening]=useState(false);
   const [interim,setInterim]=useState('');
   const [err,setErr]=useState(null);
-  const ref=useRef(null);
-  const sup=typeof window!=='undefined'&&('SpeechRecognition' in window||'webkitSpeechRecognition' in window);
-  useEffect(()=>()=>{ref.current&&ref.current.abort()},[]);
+  const recognitionRef=useRef(null);
+  const recorderRef=useRef(null);
+  const streamRef=useRef(null);
+  const chunksRef=useRef([]);
+  const getSpeechRecognition=()=>typeof window!=='undefined'&&(window.SpeechRecognition||window.webkitSpeechRecognition)||null;
+  const sup=Boolean(getSpeechRecognition())||(typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined');
+  useEffect(()=>()=>{
+    recognitionRef.current?.abort?.();
+    if(recorderRef.current&&recorderRef.current.state!=='inactive') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(track=>track.stop());
+  },[]);
+  const blobToBase64=blob=>new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const value=String(reader.result||'');
+      const [,base64='']=value.split(',');
+      resolve(base64);
+    };
+    reader.onerror=()=>reject(new Error('Audio encoding failed.'));
+    reader.readAsDataURL(blob);
+  });
+  const startWithSpeechRecognition=useCallback(SR=>{
+    const recognition=new SR();
+    recognition.lang='en-US';
+    recognition.interimResults=true;
+    recognition.maxAlternatives=1;
+    recognition.continuous=false;
+    recognitionRef.current=recognition;
+    recognition.onstart=()=>{setListening(true);setErr(null);setInterim('');};
+    recognition.onresult=e=>{
+      let fin='',tmp='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal) fin+=e.results[i][0].transcript;
+        else tmp+=e.results[i][0].transcript;
+      }
+      setInterim(tmp||fin);
+      if(fin&&onReady) onReady(fin.trim());
+    };
+    recognition.onerror=e=>{
+      setListening(false);setInterim('');
+      if(e.error!=='aborted'&&e.error!=='no-speech'){
+        setErr(e.error==='not-allowed'
+          ?'Microphone access denied. Please allow and try again.'
+          :'Voice input failed. Please type your message.');
+      }
+    };
+    recognition.onend=()=>{setListening(false);setInterim('');recognitionRef.current=null;};
+    recognition.start();
+  },[onReady]);
+  const startWithMediaRecorder=useCallback(()=>{
+    chunksRef.current=[];
+    navigator.mediaDevices.getUserMedia({audio:true})
+      .then(stream=>{
+        streamRef.current=stream;
+        const mimeType=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+        const recorder=new MediaRecorder(stream,{mimeType});
+        recorderRef.current=recorder;
+        recorder.ondataavailable=e=>{if(e.data.size>0) chunksRef.current.push(e.data);};
+        recorder.onstop=async ()=>{
+          streamRef.current?.getTracks().forEach(track=>track.stop());
+          streamRef.current=null;
+          const blob=new Blob(chunksRef.current,{type:mimeType});
+          if(!blob.size){setInterim('');return;}
+          try{
+            const audio=await blobToBase64(blob);
+            const response=await fetch('/api/stt',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({audio,mimeType,lang:'en-US'}),
+            });
+            const data=await response.json();
+            setInterim('');
+            if(!response.ok||!data.text){setErr(data.error||'Voice input failed. Please type your message.');return;}
+            if(onReady) onReady(String(data.text).trim());
+          }catch(e){
+            setInterim('');
+            setErr('Voice input failed. Please type your message.');
+          }
+        };
+        recorder.start();
+        setListening(true);
+        setErr(null);
+        setInterim('Recording');
+      })
+      .catch(e=>{
+        setErr(e?.name==='NotAllowedError'
+          ?'Microphone access denied. Please allow and try again.'
+          :'Voice input failed. Please type your message.');
+      });
+  },[blobToBase64,onReady]);
   const start=useCallback(()=>{
     if(!sup){setErr('Voice input is not supported in this browser. Please type instead.');return;}
-    try{
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      const r=new SR(); r.lang='en-US'; r.interimResults=true; r.maxAlternatives=1; r.continuous=false;
-      r.onstart=()=>{setListening(true);setErr(null);setInterim('');};
-      r.onresult=e=>{
-        let fin='',tmp='';
-        for(let i=e.resultIndex;i<e.results.length;i++){
-          if(e.results[i].isFinal) fin+=e.results[i][0].transcript;
-          else tmp+=e.results[i][0].transcript;
-        }
-        setInterim(tmp);
-        if(fin&&onReady) onReady(fin);
-      };
-      r.onerror=e=>{
-        setErr(e.error==='not-allowed'?'Microphone access denied. Please allow and try again.':
-              e.error==='no-speech'?'No speech detected. Try again.':'Voice input failed. Please type your message.');
-        setListening(false);setInterim('');
-      };
-      r.onend=()=>{setListening(false);setInterim('');};
-      ref.current=r; r.start();
-    }catch(e){setErr('Voice input failed. Please type your message.');setListening(false);}
-  },[sup,onReady]);
-  const stop=useCallback(()=>{ref.current&&ref.current.stop();ref.current=null;setListening(false);setInterim('');});
+    if(listening) return;
+    const SR=getSpeechRecognition();
+    setErr(null);
+    if(SR){
+      try{startWithSpeechRecognition(SR);}catch(e){setErr('Voice input failed. Please type your message.');setListening(false);}
+      return;
+    }
+    startWithMediaRecorder();
+  },[listening,sup,startWithMediaRecorder,startWithSpeechRecognition]);
+  const stop=useCallback(()=>{
+    if(recognitionRef.current){recognitionRef.current.stop();return;}
+    if(recorderRef.current&&recorderRef.current.state!=='inactive'){
+      recorderRef.current.stop();
+      setListening(false);
+      setInterim('Transcribing');
+    }
+  },[]);
   return{listening,interim,start,stop,err,sup};
 }
 

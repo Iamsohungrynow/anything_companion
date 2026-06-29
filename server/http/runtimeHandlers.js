@@ -12,6 +12,7 @@ const {
   HTML_FILE,
   MAX_SESSIONS,
   OPENAI_MODEL,
+  STT_MODEL,
   PORT,
   ROOT_DIR,
   SESSION_TTL_MS,
@@ -35,6 +36,7 @@ async function handleHttpRequest(req, res) {
     if (url.pathname === "/api/session") return handleSession(req, res);
     if (url.pathname === "/api/chat") return handleChat(req, res);
     if (url.pathname === "/api/tts") return handleTts(req, res);
+    if (url.pathname === "/api/stt") return handleStt(req, res);
 
     const memoryMatch = url.pathname.match(/^\/api\/session\/([^/]+)\/memory$/);
     if (memoryMatch) return handleSessionMemory(req, res, memoryMatch[1]);
@@ -135,6 +137,82 @@ async function handleTts(req, res) {
   await proxyFishAudioTts(body, res);
 }
 
+async function handleStt(req, res) {
+  if (!allowMethods(req, res, ["POST"])) return;
+  const body = await readJson(req);
+
+  const audio = String(body?.audio || "").trim();
+  const mimeType = String(body?.mimeType || "audio/webm").trim();
+  const language = String(body?.lang || "").trim();
+
+  if (!audio) {
+    sendJson(res, 400, { ok: false, error: "audio is required." });
+    return;
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(res, 503, { ok: false, error: "OpenAI STT is not configured." });
+    return;
+  }
+
+  const audioBuffer = Buffer.from(audio, "base64");
+  if (!audioBuffer.length) {
+    sendJson(res, 400, { ok: false, error: "audio must be a valid base64 string." });
+    return;
+  }
+
+  const baseMimeType = mimeType.split(";")[0].trim() || "audio/webm";
+  const extension = getAudioExtension(baseMimeType);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(OPENAI_TIMEOUT_MS, 20000));
+
+  try {
+    const formData = new FormData();
+    formData.append("file", new Blob([audioBuffer], { type: baseMimeType }), `audio.${extension}`);
+    formData.append("model", STT_MODEL);
+    if (language) formData.append("language", language);
+
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const providerBody = await response.text();
+      sendJson(res, 502, {
+        ok: false,
+        error: `OpenAI STT request failed (${response.status}).`,
+        provider: "openai",
+        model: STT_MODEL,
+        provider_status: response.status,
+        provider_body: providerBody.slice(0, 200),
+      });
+      return;
+    }
+
+    const data = await response.json();
+    sendJson(res, 200, {
+      text: String(data?.text || ""),
+      provider: "openai",
+      model: STT_MODEL,
+    });
+  } catch (error) {
+    const isTimeout = error?.name === "AbortError";
+    sendJson(res, isTimeout ? 504 : 502, {
+      ok: false,
+      error: isTimeout ? "OpenAI STT timed out." : "OpenAI STT request failed.",
+      provider: "openai",
+      model: STT_MODEL,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function handleSessionMemory(req, res, id) {
   if (!allowMethods(req, res, ["GET"])) return;
   const session = getSession(id);
@@ -159,6 +237,7 @@ function buildHealthPayload() {
     host: HOST,
     allowed_hosts: ALLOWED_HOSTS,
     openai_configured: Boolean(process.env.OPENAI_API_KEY),
+    stt_model: STT_MODEL,
     fish_audio_configured: Boolean(FISH_AUDIO_API_KEY && FISH_AUDIO_REFERENCE_ID),
     mock_forced: USE_MOCK_AI,
     model: OPENAI_MODEL,
@@ -215,6 +294,15 @@ function sendJson(res, status, payload) {
     Expires: "0",
   });
   res.end(JSON.stringify(payload, null, 2));
+}
+
+function getAudioExtension(mimeType) {
+  if (mimeType.includes("mpeg")) return "mp3";
+  if (mimeType.includes("mp4")) return "mp4";
+  if (mimeType.includes("ogg")) return "ogg";
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("webm")) return "webm";
+  return "bin";
 }
 
 async function proxyFishAudioTts(body, res) {
@@ -455,6 +543,7 @@ module.exports = {
   handleSession,
   handleSessionMemory,
   handleSessionReset,
+  handleStt,
   handleTts,
   sendJson,
 };

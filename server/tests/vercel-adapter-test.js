@@ -24,6 +24,7 @@ async function main() {
     scenarios,
     session,
     chat,
+    stt,
     tts,
     memory,
     reset,
@@ -88,6 +89,14 @@ async function main() {
   assert.equal(missingFish.statusCode, 503);
   assert.match(missingFish.json.error, /Fish Audio TTS is not configured/);
 
+  const missingStt = await invoke(stt, {
+    method: "POST",
+    url: "/api/stt",
+    body: { audio: "aGVsbG8=", mimeType: "audio/webm" },
+  });
+  assert.equal(missingStt.statusCode, 503);
+  assert.match(missingStt.json.error, /OpenAI STT is not configured/);
+
   const options = await invoke(chat, { method: "OPTIONS", url: "/api/chat" });
   assert.equal(options.statusCode, 204);
 
@@ -108,6 +117,7 @@ function testVercelFiles() {
     "api/scenarios.mjs",
     "api/session.mjs",
     "api/chat.mjs",
+    "api/stt.mjs",
     "api/tts.mjs",
     "api/session/[id]/memory.mjs",
     "api/session/[id]/reset.mjs",
@@ -161,6 +171,7 @@ async function loadHandlers() {
     scenarios: await load("api", "scenarios.mjs"),
     session: await load("api", "session.mjs"),
     chat: await load("api", "chat.mjs"),
+    stt: await load("api", "stt.mjs"),
     tts: await load("api", "tts.mjs"),
     memory: await load("api", "session", "[id]", "memory.mjs"),
     reset: await load("api", "session", "[id]", "reset.mjs"),

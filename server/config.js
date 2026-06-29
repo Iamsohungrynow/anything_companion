@@ -27,6 +27,7 @@ const HOST = process.env.HOST || (RENDER_EXTERNAL_HOSTNAME ? "0.0.0.0" : "127.0.
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4-mini";
 const OPENAI_SEARCH_MODEL = process.env.OPENAI_SEARCH_MODEL || "gpt-5.5";
 const OPENAI_TIMEOUT_MS = parsePositiveInteger(process.env.OPENAI_TIMEOUT_MS, 12000);
+const STT_MODEL = process.env.STT_MODEL || "whisper-1";
 const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY || "";
 const FISH_AUDIO_REFERENCE_ID = process.env.FISH_AUDIO_REFERENCE_ID || "";
 const FISH_AUDIO_TIMEOUT_MS = parsePositiveInteger(process.env.FISH_AUDIO_TIMEOUT_MS, 20000);
@@ -76,6 +77,7 @@ module.exports = {
   OPENAI_MODEL,
   OPENAI_SEARCH_MODEL,
   OPENAI_TIMEOUT_MS,
+  STT_MODEL,
   FISH_AUDIO_API_KEY,
   FISH_AUDIO_REFERENCE_ID,
   FISH_AUDIO_TIMEOUT_MS,
