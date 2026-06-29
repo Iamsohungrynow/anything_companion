@@ -34,9 +34,10 @@ const STT_PROVIDER = process.env.STT_PROVIDER || "volcano";
 const STT_MODEL = process.env.STT_MODEL || "whisper-1";
 const VOLC_APP_ID = process.env.VOLC_APP_ID || "";
 const VOLC_ACCESS_TOKEN = process.env.VOLC_ACCESS_TOKEN || "";
-const VOLC_ASR_CLUSTER = process.env.VOLC_ASR_CLUSTER || "volcengine_streaming_common";
+const VOLC_SECRET_KEY = process.env.VOLC_SECRET_KEY || "";
+const VOLC_ASR_CLUSTER = process.env.VOLC_ASR_CLUSTER || "volcengine_input_common";
 const VOLC_ARK_API_KEY = process.env.VOLC_ARK_API_KEY || "";
-const VOLC_CHAT_MODEL = process.env.VOLC_CHAT_MODEL || "doubao-seed-evolving";
+const VOLC_CHAT_MODEL = process.env.VOLC_CHAT_MODEL || "doubao-1-5-pro-32k-250115";
 const VOLC_CHAT_TIMEOUT_MS = parsePositiveInteger(process.env.VOLC_CHAT_TIMEOUT_MS, 20000);
 const USE_MOCK_AI = String(process.env.USE_MOCK_AI || "").toLowerCase() === "true";
 const MAX_SESSIONS = parsePositiveInteger(process.env.MAX_SESSIONS, 250);
@@ -91,6 +92,7 @@ module.exports = {
   STT_MODEL,
   VOLC_APP_ID,
   VOLC_ACCESS_TOKEN,
+  VOLC_SECRET_KEY,
   VOLC_ASR_CLUSTER,
   VOLC_ARK_API_KEY,
   VOLC_CHAT_MODEL,

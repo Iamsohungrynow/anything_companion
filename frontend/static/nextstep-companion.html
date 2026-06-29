@@ -241,7 +241,8 @@ const FORCE_LOCAL_RUNTIME = RUNTIME_MODE === 'local';
 const ALLOW_LOCAL_FALLBACK = FORCE_LOCAL_RUNTIME || new URLSearchParams(window.location.search).has('localFallback');
 
 function getAssistantText(result){
-  return result?.answer || result?.reply || "I couldn't generate a response.";
+  // reply is the conversational bubble text — match what streaming chunks extract.
+  return result?.reply || result?.answer || "I couldn't generate a response.";
 }
 
 function getRuntimeFallbackMessage(result){
@@ -356,7 +357,7 @@ function getMicroTaskItems(result){
   }));
 }
 
-async function generateChatResult(companion, msg, channel='text', messages=[]) {
+async function generateChatResult(companion, msg, channel='text', messages=[], { onChunk } = {}) {
   if(FORCE_LOCAL_RUNTIME){
     return buildMarkedLocalFallback(companion,msg,messages,'Browser-only backup selected with ?runtime=local.');
   }
@@ -379,7 +380,7 @@ async function generateChatResult(companion, msg, channel='text', messages=[]) {
         role:m.role==='companion'?'assistant':'user',
         content:m.content,
       })),
-    });
+    }, { onChunk });
     logChatRuntime({...normalized, assistantText:getAssistantText(normalized)});
     return normalized;
   } catch (err) {
@@ -410,16 +411,93 @@ function buildMarkedLocalFallback(companion,msg,messages,summary){
   return markedFallback;
 }
 
-async function requestRuntimeTurn(payload){
+async function requestRuntimeTurn(payload, { onChunk } = {}) {
   const res = await fetch('/api/chat', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`chat ${res.status}`);
-  const data = await res.json();
-  runtimeSessionId = data.session_id || runtimeSessionId;
-  return normalizeClientResult(data);
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let finalResult = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const events = buf.split('\n\n');
+    buf = events.pop(); // keep incomplete event
+    for (const evt of events) {
+      let evtType = 'message', data = '';
+      for (const line of evt.split('\n')) {
+        if (line.startsWith('event: ')) evtType = line.slice(7).trim();
+        else if (line.startsWith('data: ')) data = line.slice(6).trim();
+      }
+      if (!data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (evtType === 'reply_chunk') { if (onChunk) onChunk(parsed.text); }
+        else if (evtType === 'result') {
+          runtimeSessionId = parsed.session_id || runtimeSessionId;
+          finalResult = normalizeClientResult(parsed);
+        } else if (evtType === 'error') throw new Error(parsed.error || 'stream error');
+      } catch (e) {
+        if (e.message.includes('stream error')) throw e;
+        console.warn('[sse] parse error:', e.message, data.slice(0, 80));
+      }
+    }
+  }
+
+  if (!finalResult) throw new Error('No result received from server');
+  return finalResult;
+}
+
+// ── Streaming TTS sentence queue ──────────────────────────────────────────────
+// Queues sentences from SSE reply_chunk events and speaks them via browser TTS,
+// chaining each utterance via onend so they play back-to-back without gaps.
+let _sTtsRunId = 0;
+let _sTtsQueue = [];
+let _sTtsPlaying = false;
+let _sTtsUsed = false;
+
+function streamTtsStart() {
+  _sTtsRunId++;
+  _sTtsQueue = [];
+  _sTtsPlaying = false;
+  _sTtsUsed = false;
+}
+
+function streamTtsEnqueue(text) {
+  if (!text || !text.trim()) return;
+  _sTtsUsed = true;
+  _sTtsQueue.push(text.trim());
+  if (!_sTtsPlaying) _sTtsDrain(_sTtsRunId);
+}
+
+function _sTtsDrain(runId) {
+  if (runId !== _sTtsRunId || !window.speechSynthesis) return;
+  if (!_sTtsQueue.length) { _sTtsPlaying = false; return; }
+  _sTtsPlaying = true;
+  const text = _sTtsQueue.shift();
+  const u = new SpeechSynthesisUtterance(text);
+  const pref = (typeof chooseNaturalVoice === 'function') ? chooseNaturalVoice() : null;
+  u.rate = 0.82; u.pitch = pref ? 0.9 : 1.04; u.volume = 0.9;
+  if (pref) u.voice = pref;
+  u.onend = () => _sTtsDrain(runId);
+  u.onerror = () => _sTtsDrain(runId);
+  window.speechSynthesis.speak(u);
+}
+
+function streamTtsWasUsed() { return _sTtsUsed; }
+
+function streamTtsStop() {
+  _sTtsRunId++;
+  _sTtsQueue = [];
+  _sTtsPlaying = false;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 function buildRuntimeUnavailableResult(companion, msg){
@@ -1067,23 +1145,54 @@ function stopSpeaking(){try{speechRunId++;if(activeTtsSource){try{activeTtsSourc
 /* =================================================================
    VOICE INPUT HOOK (useVoiceInput) — push-to-talk via /api/stt
    ================================================================= */
-function useVoiceInput(onReady){
+function useVoiceInput(onReady,lang='zh-CN'){
   const [listening,setListening]=useState(false);
   const [interim,setInterim]=useState('');
   const [err,setErr]=useState(null);
+  const recognitionRef=useRef(null);
   const recorderRef=useRef(null);
   const chunksRef=useRef([]);
   const streamRef=useRef(null);
-  const sup=typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined';
+
+  const SpeechAPI=(typeof window!=='undefined')&&(window.SpeechRecognition||window.webkitSpeechRecognition)||null;
+  const hasMediaRecorder=typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined';
+  const sup=!!(SpeechAPI||hasMediaRecorder);
 
   useEffect(()=>()=>{
+    recognitionRef.current?.abort();
     if(recorderRef.current&&recorderRef.current.state!=='inactive') recorderRef.current.stop();
     streamRef.current?.getTracks().forEach(t=>t.stop());
   },[]);
 
-  const start=useCallback(()=>{
-    if(listening||!sup) return;
-    setErr(null);
+  // ── Web Speech API path (Chrome/Edge — zero latency, native) ──────────────
+  const startWithSpeechAPI=useCallback(()=>{
+    const recognition=new SpeechAPI();
+    recognition.continuous=false;
+    recognition.interimResults=true;
+    recognition.lang=lang;
+    recognitionRef.current=recognition;
+    let finalSent=false;
+    recognition.onstart=()=>{setListening(true);setInterim('Listening…');};
+    recognition.onresult=e=>{
+      let interim='',final='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const r=e.results[i];
+        if(r.isFinal) final+=r[0].transcript;
+        else interim+=r[0].transcript;
+      }
+      setInterim(interim||final);
+      if(final&&!finalSent){finalSent=true;if(onReady) onReady(final.trim());}
+    };
+    recognition.onerror=e=>{
+      setListening(false);setInterim('');
+      if(e.error!=='aborted'&&e.error!=='no-speech') setErr(`Voice error: ${e.error}`);
+    };
+    recognition.onend=()=>{setListening(false);setInterim('');recognitionRef.current=null;};
+    recognition.start();
+  },[lang,onReady]);
+
+  // ── MediaRecorder + /api/stt fallback ─────────────────────────────────────
+  const startWithMediaRecorder=useCallback(()=>{
     chunksRef.current=[];
     navigator.mediaDevices.getUserMedia({audio:true})
       .then(stream=>{
@@ -1100,7 +1209,7 @@ function useVoiceInput(onReady){
           reader.onload=()=>{
             const base64=reader.result.split(',')[1];
             fetch('/api/stt',{method:'POST',headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({audio:base64,mimeType})})
+              body:JSON.stringify({audio:base64,mimeType,lang})})
               .then(r=>r.json())
               .then(d=>{
                 setInterim('');
@@ -1128,10 +1237,19 @@ function useVoiceInput(onReady){
         setErr(e.name==='NotAllowedError'?'Microphone access denied. Please allow and try again.':
           'Voice input failed. Please type your message.');
       });
-  },[listening,sup,onReady]);
+  },[lang,onReady]);
+
+  const start=useCallback(()=>{
+    if(listening||!sup) return;
+    setErr(null);
+    if(SpeechAPI) startWithSpeechAPI();
+    else startWithMediaRecorder();
+  },[listening,sup,SpeechAPI,startWithSpeechAPI,startWithMediaRecorder]);
 
   const stop=useCallback(()=>{
-    if(recorderRef.current&&recorderRef.current.state!=='inactive'){
+    if(recognitionRef.current){
+      recognitionRef.current.stop();
+    } else if(recorderRef.current&&recorderRef.current.state!=='inactive'){
       recorderRef.current.stop();
       setListening(false);
       setInterim('Transcribing…');
@@ -2060,6 +2178,7 @@ function CField({icon,label,children}){
 function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemory,onVideoMode}){
   const [input,setInput]=useState('');
   const [typing,setTyping]=useState(false);
+  const [streamingText,setStreamingText]=useState('');
   const [speakingId,setSpeakingId]=useState(null);
   const [pendingChatVoice,setPendingChatVoice]=useState(null);
   const [voiceErrorId,setVoiceErrorId]=useState(null);
@@ -2099,14 +2218,20 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
     if(!text.trim()) return;
     const userMessage=text.trim();
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
-    setInput('');setTyping(true);
-    await new Promise(r=>setTimeout(r,900));
-    const res=await generateChatResult(companion,userMessage,'text',messages);
-    setTyping(false);
+    setInput('');setTyping(true);setStreamingText('');
+    const res=await generateChatResult(companion,userMessage,'text',messages,{
+      onChunk:(sentence)=>{
+        setTyping(false);
+        setStreamingText(prev=>prev?prev+' '+sentence:sentence);
+      },
+    });
     const assistantText=getAssistantText(res);
     console.info('[nextstep_render]', {build_marker:BUILD_MARKER, surface:'chat', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,mode:res.mode,ts:Date.now()};
+    // Add final message before clearing streaming text — both land in the same React render,
+    // so there is no blank-bubble flash between streaming preview and the real message.
     onAdd(cMsg);
+    setStreamingText('');setTyping(false);
     onResult(res,userMessage);
   };
 
@@ -2255,7 +2380,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
             </div>
             </React.Fragment>
           ))}
-          {typing&&(
+          {(typing||streamingText)&&(
             <div className="flex justify-start msg-in">
               <div className="w-7 h-7 min-w-7 min-h-7 max-w-7 max-h-7 rounded-full flex items-center justify-center flex-none mr-2 mt-1 text-sm overflow-hidden" style={{background:c.gradient}}>
                 {companion.scenario==='acg'
@@ -2264,8 +2389,11 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
                     ? <img src={companion.sourceImageUrl} alt="" className="w-full h-full object-cover"/>
                     : companion.emoji}
               </div>
-              <div className={`px-4 py-3 rounded-2xl glass border ${c.cardCls}`}>
-                <div className="flex gap-1 items-center h-4">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-white/40 typing-dot" style={{animationDelay:`${i*150}ms`}}/>)}</div>
+              <div className={`px-4 py-3 rounded-2xl glass border ${c.cardCls} max-w-xs sm:max-w-sm`}>
+                {streamingText
+                  ? <p className="text-sm text-white/90 leading-relaxed">{streamingText}<span className="inline-block w-1.5 h-3.5 ml-1 bg-white/50 rounded-sm anim-bounce-soft"/></p>
+                  : <div className="flex gap-1 items-center h-4">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-white/40 typing-dot" style={{animationDelay:`${i*150}ms`}}/>)}</div>
+                }
               </div>
             </div>
           )}
@@ -2434,13 +2562,20 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     setSubtitle(`You: ${userMessage}`); setShowSub(true);
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
     await new Promise(r=>setTimeout(r,600));
-    const res=await generateChatResult(companion,userMessage,'stage',messages);
+    streamTtsStart();
+    const res=await generateChatResult(companion,userMessage,'stage',messages,{
+      onChunk:(sentence)=>{
+        setSubtitle(sentence); setShowSub(true);
+        streamTtsEnqueue(sentence);
+      },
+    });
     const assistantText=getAssistantText(res);
     console.info('[nextstep_render]', {build_marker:BUILD_MARKER, surface:'stage', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,mode:res.mode,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
-    playReply(assistantText,res.companion_state);
+    // Only fall back to full-text playback if streaming TTS never fired (e.g. mock or fallback)
+    if(!streamTtsWasUsed()) playReply(assistantText,res.companion_state);
   };
 
   const [inputText,setInputText]=useState('');

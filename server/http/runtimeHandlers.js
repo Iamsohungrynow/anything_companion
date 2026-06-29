@@ -1,4 +1,5 @@
 const fs = require("fs");
+const https = require("https");
 const { randomUUID } = require("crypto");
 const path = require("path");
 const packageJson = require("../../package.json");
@@ -20,14 +21,16 @@ const {
   STT_MODEL,
   VOLC_APP_ID,
   VOLC_ACCESS_TOKEN,
+  VOLC_SECRET_KEY,
   VOLC_ASR_CLUSTER,
   USE_MOCK_AI,
   VERCEL_HOST_SUFFIXES,
 } = require("../config");
 const { companionData } = require("../data");
-const { runTurn } = require("../engines/runtime/orchestrator");
-const { normalizeScenario } = require("../schemas");
-const { createSession, getSession, resetSession } = require("../store/sessionStore");
+const { runTurn, inferDefaultMode } = require("../engines/runtime/orchestrator");
+const { runDoubaoStream } = require("../engines/doubao/client");
+const { validateChatRequest, normalizeRuntimeResult, normalizeScenario } = require("../schemas");
+const { createSession, ensureSession, getSession, resetSession, updateSessionAfterTurn } = require("../store/sessionStore");
 
 const ttsCache = new Map();
 const MAX_TTS_CACHE_ENTRIES = 40;
@@ -121,17 +124,66 @@ async function handleSession(req, res) {
 async function handleChat(req, res) {
   if (!allowMethods(req, res, ["POST"])) return;
   const body = await readJson(req);
-  const result = await runTurn(body);
-  console.log(
-    "[api/chat]",
-    JSON.stringify({
-      mock_forced: USE_MOCK_AI,
-      runtime_source: result?.runtime_source,
-      intent: result?.intent,
-      mode: result?.mode,
-    })
-  );
-  sendJson(res, 200, result);
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+
+  const emit = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    let runtimeResult;
+
+    if (!USE_MOCK_AI) {
+      const parsed = validateChatRequest(body);
+      if (!parsed.ok) { emit("error", { error: parsed.error }); res.end(); return; }
+
+      const input = parsed.value;
+      const session = ensureSession(input);
+
+      try {
+        // Real streaming path — sentences arrive before LLM finishes
+        const raw = await runDoubaoStream({ input, session }, (sentence) => {
+          emit("reply_chunk", { text: sentence });
+        });
+        runtimeResult = normalizeRuntimeResult(raw, {
+          session_id: session.id,
+          message: input.message,
+          defaultMode: inferDefaultMode(input),
+          fallback_used: false,
+        });
+        runtimeResult.runtime_source = "doubao";
+        const updated = updateSessionAfterTurn(session, input, runtimeResult);
+        runtimeResult.memory = updated.memory;
+      } catch (streamErr) {
+        console.error("[handleChat] stream failed, falling back to runTurn:", streamErr?.message);
+        runtimeResult = await runTurn(body);
+        // Emit reply chunks from the fallback result so frontend TTS still works
+        splitSentences(runtimeResult.reply || runtimeResult.answer || "")
+          .forEach((s) => emit("reply_chunk", { text: s }));
+      }
+    } else {
+      runtimeResult = await runTurn(body);
+      splitSentences(runtimeResult.reply || runtimeResult.answer || "")
+        .forEach((s) => emit("reply_chunk", { text: s }));
+    }
+
+    console.log("[api/chat] source=%s intent=%s", runtimeResult?.runtime_source, runtimeResult?.intent);
+    emit("result", runtimeResult);
+  } catch (err) {
+    emit("error", { error: err.message || "Internal error" });
+  }
+
+  res.end();
+}
+
+function splitSentences(text) {
+  return text
+    .split(/(?<=[.!?。！？])\s+|(?<=[。！？])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 4);
 }
 
 async function handleTts(req, res) {
@@ -234,38 +286,58 @@ async function sttVolcano(res, audio, mimeType, controller) {
     audio: { format, codec, sample_rate: 16000, bits: 16, channel: 1, language: "zh-CN", audio_data: audio },
   };
 
-  const response = await fetch("https://openspeech.bytedance.com/api/v1/asr", {
-    method: "POST",
-    signal: controller.signal,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${VOLC_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify(payload),
+  const bodyStr = JSON.stringify(payload);
+
+  const data = await new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "openspeech.bytedance.com",
+        path: "/api/v1/asr",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(bodyStr),
+          // Bearer;{token} is the correct format for Volcano Engine one-shot ASR
+          Authorization: `Bearer;${VOLC_ACCESS_TOKEN}`,
+        },
+      },
+      (r) => {
+        let raw = "";
+        r.on("data", (chunk) => { raw += chunk; });
+        r.on("end", () => {
+          try { resolve({ status: r.statusCode, body: JSON.parse(raw) }); }
+          catch { resolve({ status: r.statusCode, body: { message: raw } }); }
+        });
+      },
+    );
+    req.on("error", reject);
+    if (controller?.signal) {
+      controller.signal.addEventListener("abort", () => req.destroy(new Error("aborted")));
+    }
+    req.write(bodyStr);
+    req.end();
   });
 
-  if (!response.ok) {
-    const errBody = await response.text();
+  if (data.status !== 200) {
     sendJson(res, 502, {
-      error: `STT provider error (${response.status}).`,
+      error: `STT provider error (${data.status}).`,
       provider: "volcano",
-      provider_status: response.status,
-      provider_body: errBody.slice(0, 200),
+      provider_status: data.status,
+      provider_body: JSON.stringify(data.body).slice(0, 200),
     });
     return;
   }
 
-  const data = await response.json();
-  if (data.code !== 1000) {
+  if (data.body.code !== 1000) {
     sendJson(res, 502, {
-      error: `Volcano STT error: ${data.message || "unknown"}`,
+      error: `Volcano STT error: ${data.body.message || "unknown"}`,
       provider: "volcano",
-      provider_code: data.code,
+      provider_code: data.body.code,
     });
     return;
   }
 
-  const text = (data.utterances || []).map((u) => u.text).join("").trim();
+  const text = (data.body.utterances || []).map((u) => u.text).join("").trim();
   sendJson(res, 200, { text, provider: "volcano", cluster: VOLC_ASR_CLUSTER });
 }
 

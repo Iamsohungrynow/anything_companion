@@ -8,20 +8,13 @@ async function runDoubao({ input, session, repairContext }) {
 
   const t0 = Date.now();
   const payload = buildRuntimePayload(input, session, repairContext);
-  const imageUrl = input.companion?.sourceImageUrl || input.image_url || null;
 
-  const userContent = imageUrl
-    ? [
-        { type: "image_url", image_url: { url: imageUrl } },
-        { type: "text", text: JSON.stringify(payload) },
-      ]
-    : JSON.stringify(payload);
-
+  // doubao-1-5-pro-32k does not support multi-modal; send text-only payload.
   const requestBody = {
     model: VOLC_CHAT_MODEL,
     messages: [
       { role: "system", content: buildSystemPrompt() },
-      { role: "user", content: userContent },
+      { role: "user", content: JSON.stringify(payload) },
     ],
   };
 
@@ -120,4 +113,128 @@ function buildRecentHistory(input, session) {
   return [...serverHistory, ...clientHistory].slice(-8);
 }
 
-module.exports = { runDoubao };
+// ── Streaming variant ──────────────────────────────────────────────────────
+// Calls Doubao with stream:true, extracts `reply` sentences incrementally,
+// calls onSentence(text) for each complete sentence, resolves with full JSON.
+async function runDoubaoStream({ input, session, repairContext }, onSentence) {
+  if (!VOLC_ARK_API_KEY) throw new Error("VOLC_ARK_API_KEY is not configured.");
+
+  const t0 = Date.now();
+  const runtimePayload = buildRuntimePayload(input, session, repairContext);
+
+  // doubao-1-5-pro-32k does not support multi-modal; send text-only.
+  const requestBody = {
+    model: VOLC_CHAT_MODEL,
+    stream: true,
+    messages: [
+      { role: "system", content: buildSystemPrompt() },
+      { role: "user", content: JSON.stringify(runtimePayload) },
+    ],
+  };
+
+  return new Promise((resolve, reject) => {
+    const bodyStr = JSON.stringify(requestBody);
+    const extractState = { replyStart: -1, processedTo: 0 };
+    let accumulated = "";
+
+    const req = https.request(
+      {
+        hostname: "ark.cn-beijing.volces.com",
+        path: "/api/v3/chat/completions",
+        method: "POST",
+        timeout: VOLC_CHAT_TIMEOUT_MS,
+        headers: {
+          Authorization: `Bearer ${VOLC_ARK_API_KEY}`,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(bodyStr),
+        },
+      },
+      (res) => {
+        if (res.statusCode !== 200) {
+          let errBody = "";
+          res.on("data", (c) => { errBody += c; });
+          res.on("end", () => reject(new Error(`Doubao stream error: ${res.statusCode} ${errBody.slice(0, 200)}`)));
+          return;
+        }
+        let rawBuf = "";
+        res.on("data", (chunk) => {
+          rawBuf += chunk.toString();
+          const lines = rawBuf.split("\n");
+          rawBuf = lines.pop(); // keep incomplete line
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const sseData = line.slice(6).trim();
+            if (sseData === "[DONE]") continue;
+            try {
+              const delta = JSON.parse(sseData).choices?.[0]?.delta?.content ?? "";
+              if (!delta) continue;
+              accumulated += delta;
+              if (onSentence) {
+                extractReplyChunks(accumulated, extractState).forEach(onSentence);
+              }
+            } catch { /* skip malformed SSE line */ }
+          }
+        });
+
+        res.on("end", () => {
+          try {
+            // accumulated = the model's full content string (built from delta pieces)
+            console.log("[doubao-stream] done elapsed=%dms", Date.now() - t0);
+            resolve(JSON.parse(accumulated));
+          } catch (e) {
+            reject(new Error(`Doubao stream parse error: ${e.message}. raw: ${accumulated.slice(0, 200)}`));
+          }
+        });
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error("Doubao stream timed out.")));
+    req.on("error", reject);
+    req.write(bodyStr);
+    req.end();
+  });
+}
+
+// Extract newly complete sentences from the `reply` field as it streams in.
+function extractReplyChunks(accumulated, state) {
+  const sentences = [];
+
+  if (state.replyStart === -1) {
+    const m = accumulated.match(/"reply"\s*:\s*"/);
+    if (!m) return sentences;
+    state.replyStart = m.index + m[0].length;
+  }
+
+  // Decode the JSON string value character by character
+  const raw = accumulated.slice(state.replyStart);
+  let content = "";
+  let i = 0;
+  while (i < raw.length) {
+    const c = raw[i];
+    if (c === '"' && (i === 0 || raw[i - 1] !== "\\")) break; // closing quote
+    if (c === "\\" && i + 1 < raw.length) {
+      const esc = { n: "\n", '"': '"', "\\": "\\", t: "\t", r: "\r" }[raw[i + 1]] ?? raw[i + 1];
+      content += esc;
+      i += 2;
+    } else {
+      content += c;
+      i++;
+    }
+  }
+
+  // Find new complete sentences since last time
+  const unprocessed = content.slice(state.processedTo);
+  const re = /[^.!?。！？\n]*[.!?。！？]+\s*/g;
+  let match;
+  while ((match = re.exec(unprocessed)) !== null) {
+    const text = match[0].trim();
+    if (text.length > 4) {
+      sentences.push(text);
+      state.processedTo += match[0].length;
+    }
+  }
+
+  return sentences;
+}
+
+module.exports = { runDoubao, runDoubaoStream };
