@@ -9,133 +9,68 @@
 </p>
 
 <p align="center">
-  <strong>AI character presence layer for digital culture</strong><br />
-  Memory-driven persona intelligence, creator IP interaction, study companionship, and 3D desktop embodiment.
+  AI character presence for study, work, routines, creator IP interaction, and 3D desktop companionship.
 </p>
 
 <p align="center">
+  <a href="https://github.com/Iamsohungrynow/Yorimi">GitHub</a>
+  |
   <a href="https://compagnon-eveil.vercel.app/">Live Demo</a>
-  |
-  <a href="#opc-wave-1-snapshot">OPC Wave 1 Snapshot</a>
-  |
-  <a href="#demo-preview">Demo Preview</a>
-  |
-  <a href="#english">English</a>
-  |
-  <a href="#中文">中文</a>
-  |
-  <a href="#wave-1-submission-docs">Wave 1 Specs</a>
-  |
-  <a href="#team--founders">Founders</a>
-</p>
-
-<p align="center">
-  <img alt="Track" src="https://img.shields.io/badge/Track-Digital%20Culture-ff7b54" />
-  <img alt="Stage" src="https://img.shields.io/badge/Wave%201-Idea%20%2F%20Specs-22c55e" />
-  <img alt="Demo" src="https://img.shields.io/badge/Demo-Live-14b8a6" />
-  <img alt="Award" src="https://img.shields.io/badge/UCWS%202026-Top%2020%20Finalist-f59e0b" />
 </p>
 
 ---
 
-## OPC Wave 1 Snapshot
+## What Yorimi Is
 
-| Item | Yorimi Summary |
-| --- | --- |
-| Track | **Digital Culture** - AI+Entertainment / AI+Education |
-| Stage | **Wave 1: Idea / Specs** - scenario definition, business logic, executable requirements, and evaluation criteria |
-| Core scenario | Users create or select an AI character for ACGN, VTuber, indie game IP, original character, digital pet, study, and daily companionship scenes. Yorimi gives the character persona-consistent dialogue, lightweight memory, emotional/state feedback, micro-action guidance, and 3D desktop presence. |
-| Evaluation criteria | Persona consistency, onboarding completion, low-motivation response quality, memory usefulness, desktop-presence effect, creator interest, and early payment signal. Full criteria are in [01_Project_Specification_EN.md](./docs/submission/opc-2026-wave1/en/01_Project_Specification_EN.md). |
-| Current demo status | Web runtime prototype is deployed on the predecessor **Compagnon Éveil** domain and can run locally from this repo. Physical 3D desktop device proof is shown below. Creator Studio is a **planned Wave 2/3 creator-side prototype**, not claimed as a shipped feature. |
+Yorimi is an adaptive AI companion system built around character presence, not generic chat. It combines:
 
-> **Demo domain note:** Yorimi was previously named **Compagnon Éveil**, so the current live demo URL is still `https://compagnon-eveil.vercel.app/`. The repo, specs, and product direction are now Yorimi.
+- persona-consistent conversation
+- session memory and companion profile context
+- study, work, routine, and emotional check-in support
+- voice playback with browser fallback
+- expressive companion visuals and state feedback
+- a path toward physical 3D desktop embodiment
 
-## Demo Preview
+The goal is to make a companion that feels coherent across tone, role, use case, and recent history, while still staying responsive to the user's latest message.
 
-| Web Runtime Prototype | 3D Desktop Device Proof |
-| --- | --- |
-| <img src="./assets/web-demo-preview.png" alt="Yorimi Web runtime prototype screenshot" width="430" /><br />Live demo: [compagnon-eveil.vercel.app](https://compagnon-eveil.vercel.app/)<br />Local route: `http://127.0.0.1:3017/nextstep-companion.html`<br />The route filename is kept only for deployment/test compatibility. The current product identity is Yorimi. | <img src="./assets/hardware-demo.gif" alt="Yorimi 3D desktop hardware demo GIF" width="300" /><br />Hardware proof video: [assets/hardware-demo.mp4](./assets/hardware-demo.mp4) |
+## Product Experience
 
-Additional state videos used by the prototype: [idle loop](./assets/idle%20loop.mp4), [thinking](./assets/thinking.mp4), [remind](./assets/remind.mp4), [jump](./assets/jump.mp4), [turn around](./assets/turn_around.mp4), [confused](./assets/confused.mp4).
+Yorimi is designed for moments when a user wants more than an answer. A companion can respond with personality, remember relevant context, and help the user move from hesitation into one small action.
 
-## English
+Typical use cases include:
 
-### One-Line Pitch
+- study support and sprint starts
+- work focus and routine check-ins
+- low-energy or emotionally stuck moments
+- object-based companions and creator-owned characters
+- character-driven interaction systems for original IP
 
-**Yorimi is building the AI presence layer for digital characters, giving virtual IPs memory, agency, and real-world 3D desktop embodiment beyond the screen.**
+## Current Prototype
 
-### What Is Yorimi?
+This repository contains the current Yorimi runtime prototype, including:
 
-Yorimi is an AI character presence product that combines:
+- a standalone web companion demo
+- the OpenAI runtime adapter
+- schema-compatible fallback behavior
+- session and lightweight memory handling
+- browser and API-based voice paths
+- committed companion and hardware-demo assets
 
-- AI character interaction
-- Long-term memory and session context
-- Voice and emotional state feedback
-- Study, work, routine, and daily companionship
-- Planned Creator IP interaction through Creator Studio
-- 3D desktop companion device presentation
-
-It is designed for ACGN users, VTuber communities, indie game IPs, original character creators, and young users who want study and daily companionship. Yorimi fits the **Digital Culture** track as an **AI+Entertainment / AI+Education** application.
-
-### Why The Demo Link Says Compagnon Éveil
-
-Yorimi was previously named **Compagnon Éveil**. The current deployed technical prototype still uses the predecessor deployment domain:
+The live demo currently uses an older deployment domain:
 
 ```text
 https://compagnon-eveil.vercel.app/
 ```
 
-The product identity, Wave 1 submission, and future roadmap are now Yorimi.
-
-### Product Experience
-
-Users create or select an AI companion: an original anime-style character, study companion, VTuber character, indie game character, or digital pet. Each character can have personality, voice interaction, memory, skins, and expressive states.
-
-When the user feels stuck, low-energy, or unable to start, Yorimi responds gently first, then guides one concrete action such as a daily check-in, a 10-minute study sprint, or a task-start reminder.
-
-Unlike a normal chatbot, Yorimi also has a **3D desktop companion device demo**. The character can appear on a physical desktop display with expressions, motion, and status, turning virtual characters into companions with real-world presence.
-
-### Creator Studio
-
-Yorimi is planned to provide Creator Studio for VTubers, illustrators, indie game teams, and original IP creators. In Wave 2/3, creators will be able to upload character settings, worldview boundaries, tone samples, voice, and skins, turning their characters into interactive, operable, displayable, and monetizable AI character services.
-
-### Current Status
-
-Wave 1 is focused on clear product specs: application scenarios, business logic, executable requirements, and evaluation criteria.
-
-Current repository includes:
-
-- Deployed Web runtime prototype
-- OpenAI runtime adapter
-- Schema-compatible fallback behavior
-- Voice fallback
-- Session and lightweight memory logic
-- Companion assets
-- 3D desktop device demo assets
-- Chinese and English submission documents
-
-This is not yet a complete commercial product. Wave 2 will turn the current runtime into a Yorimi-branded MVP.
-
-## Wave 1 Submission Docs
-
-Submission folder: [docs/submission/opc-2026-wave1](./docs/submission/opc-2026-wave1)
-
-| Chinese | English | Purpose |
-| --- | --- | --- |
-| [01_项目说明文档.md](./docs/submission/opc-2026-wave1/zh/01_项目说明文档.md) | [01_Project_Specification_EN.md](./docs/submission/opc-2026-wave1/en/01_Project_Specification_EN.md) | Product specs, scenarios, requirements, evaluation criteria |
-| [02_代码运行说明.md](./docs/submission/opc-2026-wave1/zh/02_代码运行说明.md) | [02_Run_Instructions_EN.md](./docs/submission/opc-2026-wave1/en/02_Run_Instructions_EN.md) | Local run instructions and hardware demo evidence |
-| [03_技术与产品架构说明.md](./docs/submission/opc-2026-wave1/zh/03_技术与产品架构说明.md) | [03_Technical_Product_Architecture_EN.md](./docs/submission/opc-2026-wave1/en/03_Technical_Product_Architecture_EN.md) | Technical and product architecture |
-| [04_未来规划.md](./docs/submission/opc-2026-wave1/zh/04_未来规划.md) | [04_Roadmap_EN.md](./docs/submission/opc-2026-wave1/en/04_Roadmap_EN.md) | Wave 2/3/4 roadmap, validation, commercialization |
+That URL is only a deployment detail. The product and repository identity are Yorimi.
 
 ## Demo
 
-- Live Web demo: https://compagnon-eveil.vercel.app/
+- Live web demo: https://compagnon-eveil.vercel.app/
 - Local route: `http://127.0.0.1:3017/nextstep-companion.html`
 - Hardware proof GIF: [assets/hardware-demo.gif](./assets/hardware-demo.gif)
 - Hardware proof video: [assets/hardware-demo.mp4](./assets/hardware-demo.mp4)
 - Device state demo assets: [assets](./assets)
-
-The local route keeps the predecessor filename for deployment compatibility. Yorimi is the current product identity.
 
 ## Run Locally
 
@@ -158,68 +93,22 @@ OPENAI_API_KEY=your_key_here
 USE_MOCK_AI=false
 ```
 
-Without `OPENAI_API_KEY`, the backend uses schema-compatible fallback for frontend rendering and failure-handling tests. Real character quality should be evaluated with OpenAI configured.
+Without `OPENAI_API_KEY`, the backend falls back to schema-compatible mock behavior for rendering and failure handling.
 
-## Team / Founders
+## Repository Structure
 
-**Siyu Wang（王斯昱）** is the founder and Product/Business Lead of Yorimi. He studies in the ESSEC Business School Global BBA program with the ESSEC Excellence Scholarship. He has worked on Mercor AI consulting and generative AI model evaluation, independently handled market research and data analysis at Yunnan Yunda Coffee, and led a team into L'Oréal Brandstorm 2026 Hong Kong Top 50. He leads Yorimi's product direction, AI character experience, market positioning, and business strategy.
+- [frontend/static](./frontend/static) - served standalone HTML demo and companion data
+- [frontend/companion-experience](./frontend/companion-experience) - interaction-system source files
+- [server/engines/openai](./server/engines/openai) - OpenAI adapter
+- [server/engines/mock](./server/engines/mock) - emergency fallback logic
+- [server/engines/runtime](./server/engines/runtime) - orchestration and runtime guards
+- [server/tests](./server/tests) - contract and smoke tests
+- [assets](./assets) - companion visuals and demo media
+- [api](./api) - Vercel serverless wrappers
 
-**Martina Lee** is Yorimi's cofounder and AI Engineering/Research Lead. Martina is Singaporean Chinese and is pursuing a Physics PhD at Nanyang Technological University, working across Physics x AI research and AI engineering. Martina and Siyu met through hackathon collaboration and have continued building together. They brought Yorimi's predecessor, Compagnon Éveil, into the UCWS Singapore Hackathon 2026 Top 20.
+## Notes
 
-## Award / Early Recognition
-
-Yorimi's predecessor project **Compagnon Éveil** was selected as a **UCWS Singapore Hackathon 2026 Top 20 Finalist**. This recognition is the proof point behind Yorimi's current direction: AI character presence for digital culture, creator IP, study companionship, and 3D desktop embodiment.
-
-<p align="center">
-  <img src="./assets/awards/ucws-top20-certificate.jpg" alt="UCWS Singapore Hackathon 2026 Top 20 Finalist certificate" width="520" />
-  <br />
-  <sub>Proof of recognition: UCWS Singapore Hackathon 2026 Top 20 Finalist certificate for Compagnon Éveil, Yorimi's predecessor project.</sub>
-</p>
-
-## 中文
-
-### 一句话介绍
-
-**Yorimi 是面向数字文化赛道的 AI 角色存在系统，把虚拟 IP 从“被观看的内容”升级为有记忆、有互动、有桌面在场感的 AI companion。**
-
-### OPC Wave 1 提交摘要
-
-| 项目 | Yorimi 摘要 |
-| --- | --- |
-| 赛道 | **数字文化** - AI+文娱 / AI+教育 |
-| 阶段 | **Wave 1: Idea / Specs** - 明确应用场景、业务逻辑、可执行需求与评测标准 |
-| 核心场景 | 用户创建或选择 AI 角色，用于 ACGN、VTuber、独立游戏 IP、原创角色、数字宠物、学习陪伴与日常陪伴。Yorimi 提供符合人设的对话、轻量记忆、情绪/状态反馈、micro-action 引导和 3D 桌面在场感。 |
-| 评测标准 | 人设一致性、角色创建完成率、低动力回应质量、记忆有效性、桌面在场感提升、创作者兴趣与早期付费信号。完整标准见 [01_项目说明文档.md](./docs/submission/opc-2026-wave1/zh/01_项目说明文档.md)。 |
-| 当前 Demo 状态 | Web runtime prototype 已部署在前身项目 **Compagnon Éveil** 域名，也可本地运行；3D 桌面设备实物证明已在上方 Demo Preview 展示；Creator Studio 是 **Wave 2/3 计划中的创作者端原型**，不是当前已上线功能。 |
-
-### 项目定位
-
-Yorimi 是一款结合 **AI 角色互动系统** 与 **3D 桌面陪伴设备** 的 AI 角色存在产品，面向 ACGN、VTuber、独立游戏 IP、原创角色创作者与年轻用户，属于数字文化赛道的 **AI+文娱 / AI+教育** 应用。
-
-用户可以创建或选择一个 AI companion，例如原创二次元角色、学习陪伴角色、VTuber 角色、独立游戏角色或数字宠物。角色具备可对话的性格、语音互动、长期记忆、角色皮肤与情绪化表达，能在学习、工作和日常生活中提供陪伴、提醒、鼓励与轻量行动引导。
-
-当用户感到低动力、拖延或难以开始时，Yorimi 会先温和回应，再引导用户完成一个具体的小行动，例如每日 check-in、10 分钟学习专注或任务开始提醒。
-
-### 3D 桌面在场
-
-与传统 AI 聊天工具不同，Yorimi 不止于文字回复。我们已经制作了 **3D 桌面陪伴设备 Demo**，让角色在桌面设备上展示表情、动作与状态，赋予虚拟角色现实存在感。它把 AI 对话、角色设定、长期记忆、视觉形象、桌面展示与陪伴场景结合起来，让虚拟角色成为有持续互动价值的数字伙伴。
-
-### 创作者端
-
-Yorimi 计划在 Wave 2/3 提供 Creator Studio，支持 VTuber、画师、独立游戏团队与原创 IP 创作者上传角色设定、世界观边界、语气风格、语音与皮肤，把自己的角色转化为可互动、可运营、可展示、可商业化的 AI 角色服务。当前阶段将 Creator Studio 定义为创作者端产品方向与后续原型目标，而不是已上线功能。
-
-### 当前阶段
-
-本阶段项目仓库包含产品说明、代码运行说明、技术与产品架构、未来规划、团队介绍、线上技术原型与 3D 桌面设备展示素材。Yorimi 的前身项目 **Compagnon Éveil** 曾入选 **UCWS Singapore Hackathon 2026 Top 20 Finalist**；当前我们正基于前期 Demo 与反馈，将项目进一步升级为定位更清晰的 AI 角色存在产品。
-
-### 团队
-
-**Siyu Wang（王斯昱）** 是 Yorimi 的发起人，主导产品与商业，就读于 ESSEC Business School Global BBA（ESSEC Excellence Scholarship）。他曾任 Mercor AI 咨询与生成式 AI 模型评估，并在 Yunnan Yunda Coffee 独立负责市场调研与数据分析；作为队长入围 L'Oréal Brandstorm 2026 香港赛区 Top 50。目前负责 Yorimi 的产品方向、AI 角色体验、市场定位与商业策略。
-
-**Martina Lee** 是 Yorimi cofounder，Singaporean Chinese，目前在 Nanyang Technological University 攻读 Physics PhD，研究方向横跨 Physics x AI，同时负责 AI engineering 与技术实现。Martina 与 Siyu 通过 hackathon 合作相识，并持续协作推进 Yorimi；两人共同将 Yorimi 前身 Compagnon Éveil 带入 UCWS Singapore Hackathon 2026 Top 20。
-
-## References
-
-- [AI HoloBox](https://www.aiholobox.com/) - holographic desktop AI companion reference.
-- [Global Market Insights: Holographic Display Market](https://www.gminsights.com/industry-analysis/holographic-display-market) - holographic display market forecast.
-- [Gatebox](https://www.gatebox.ai/) - virtual character companion device category reference.
+- Normal chat should use the OpenAI runtime when `OPENAI_API_KEY` is configured.
+- Mock behavior is fallback only.
+- The visible assistant message should render from `answer` first, then `reply`.
+- Voice is progressive enhancement; typing and reading must always work.
