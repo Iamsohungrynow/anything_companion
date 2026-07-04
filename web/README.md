@@ -27,10 +27,11 @@ project. Deploy `web/` as its **own** project:
 
 1. Vercel dashboard: New Project, import the Yorimi repo.
 2. Set **Root Directory** to `web`. The framework preset auto-detects **Next.js**.
-3. Add an Environment Variable:
+3. Set **Production Branch** to `main` (the `web/` app lives on `main`).
+4. Add an Environment Variable:
    - `YORIMI_API_ORIGIN` = your deployed backend URL (e.g. `https://yorimi.vercel.app`).
      This is where `/api/*` (chat, TTS, STT) is proxied. Without it, API calls fail in prod.
-4. Deploy.
+5. Deploy.
 
 Notes:
 - `/api/*` is a server-side rewrite (see `next.config.mjs`), so no CORS setup is needed and no
