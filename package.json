@@ -26,6 +26,6 @@
   },
   "homepage": "https://github.com/Iamsohungrynow/Yorimi#readme",
   "dependencies": {
-    "undici": "^8.5.0"
+    "undici": "^6.0.0"
   }
 }
