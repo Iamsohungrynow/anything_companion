@@ -12,12 +12,31 @@ npm run dev      # http://localhost:3000
 ```
 
 - `/` — the landing page
+- `/demo` — the full companion demo (served from `public/demo.html`), whose `/api/*` calls are proxied to the runtime
 - `/mockups` — Home / Countdown / Chat app-screen mockups
 
 ```bash
 npm run build      # production build (verified passing)
 npm run typecheck  # tsc --noEmit
 ```
+
+## Deploy (Vercel, as its own project)
+
+This app lives in the `web/` subfolder; the repo root is a separate (backend) Vercel
+project. Deploy `web/` as its **own** project:
+
+1. Vercel dashboard: New Project, import the Yorimi repo.
+2. Set **Root Directory** to `web`. The framework preset auto-detects **Next.js**.
+3. Add an Environment Variable:
+   - `YORIMI_API_ORIGIN` = your deployed backend URL (e.g. `https://yorimi.vercel.app`).
+     This is where `/api/*` (chat, TTS, STT) is proxied. Without it, API calls fail in prod.
+4. Deploy.
+
+Notes:
+- `/api/*` is a server-side rewrite (see `next.config.mjs`), so no CORS setup is needed and no
+  provider keys live in this project.
+- Voice/chat provider keys (Fish, OpenAI, etc.) belong to the **backend** project's env, not here.
+- `/demo` and its `/assets/*` media are served statically from `public/`.
 
 ## Design system (locked)
 
