@@ -5,10 +5,20 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Yorimi</title>
   <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: {
+      violet:  {50:'#fbf1ea',100:'#f7ddd0',200:'#f0c3ac',300:'#eb9a70',400:'#e78255',500:'#e0714a',600:'#c9572f',700:'#a84526',800:'#853821',900:'#5c281a'},
+      purple:  {50:'#fbf1ea',100:'#f7ddd0',200:'#f0c3ac',300:'#eb9a70',400:'#e78255',500:'#e0714a',600:'#c9572f',700:'#a84526',800:'#853821',900:'#5c281a'},
+      indigo:  {50:'#fbf1ea',100:'#f7ddd0',200:'#f0c3ac',300:'#eb9a70',400:'#e78255',500:'#e0714a',600:'#c9572f',700:'#a84526',800:'#853821',900:'#5c281a'},
+      fuchsia: {50:'#fbf1ea',100:'#f7ddd0',200:'#f0c3ac',300:'#eb9a70',400:'#e78255',500:'#e0714a',600:'#c9572f',700:'#a84526',800:'#853821',900:'#5c281a'}
+    } } }
+  };
+</script>
   <!-- Live2D is loaded only when available locally; study chat should not preload external runtimes. -->
   <style>
     body{
-      background:linear-gradient(135deg,#0f0c29 0%,#302b63 40%,#24243e 100%);
+      background:#f6f1e6;color:#2b2420;
       background-attachment:fixed;min-height:100vh;
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       -webkit-font-smoothing:antialiased;
@@ -23,7 +33,7 @@
     }
     @keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.015)}}
     @keyframes talkWave{0%,100%{transform:scaleX(1) scaleY(1)}25%{transform:scaleX(1.04) scaleY(0.97)}50%{transform:scaleX(0.98) scaleY(1.03)}75%{transform:scaleX(1.02) scaleY(0.98)}}
-    @keyframes glowPulse{0%,100%{box-shadow:0 0 20px rgba(139,92,246,0.4),0 0 60px rgba(139,92,246,0.15)}50%{box-shadow:0 0 40px rgba(139,92,246,0.7),0 0 100px rgba(139,92,246,0.35),0 0 160px rgba(168,85,247,0.2)}}
+    @keyframes glowPulse{0%,100%{box-shadow:0 0 20px rgba(224,113,74,0.4),0 0 60px rgba(224,113,74,0.15)}50%{box-shadow:0 0 40px rgba(224,113,74,0.7),0 0 100px rgba(224,113,74,0.35),0 0 160px rgba(224,113,74,0.2)}}
     @keyframes slideUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes bounceSoft{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
@@ -50,7 +60,7 @@
 
     /* Scrollbar */
     ::-webkit-scrollbar{width:4px}
-    ::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.4);border-radius:99px}
+    ::-webkit-scrollbar-thumb{background:rgba(224,113,74,0.4);border-radius:99px}
     ::-webkit-scrollbar-track{background:transparent}
 
     /* Glass cards */
@@ -59,20 +69,20 @@
     .glass-bright{background:rgba(255,255,255,0.12);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2)}
 
     /* ACG character portrait */
-    .acg-portrait{image-rendering:auto;object-fit:contain;max-height:100%;filter:drop-shadow(0 0 32px rgba(139,92,246,0.6))}
+    .acg-portrait{image-rendering:auto;object-fit:contain;max-height:100%;filter:drop-shadow(0 0 32px rgba(224,113,74,0.6))}
     .acg-stage{position:relative;overflow:hidden}
-    .acg-stage::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 100%,rgba(139,92,246,0.25) 0%,transparent 70%);pointer-events:none;z-index:1}
+    .acg-stage::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 100%,rgba(224,113,74,0.25) 0%,transparent 70%);pointer-events:none;z-index:1}
 
     /* Video mode ambient bg */
-    .video-bg{background:radial-gradient(ellipse 80% 60% at 50% 70%,rgba(88,28,235,0.25) 0%,rgba(15,12,41,0.95) 70%)}
+    .video-bg{background:radial-gradient(ellipse 80% 60% at 50% 70%,rgba(224,113,74,0.25) 0%,rgba(246,241,230,0.96) 70%)}
 
     /* Progress step */
-    .step-done{color:#a78bfa;font-weight:700}
-    .step-active{color:#fff;font-weight:800;text-shadow:0 0 12px rgba(167,139,250,0.8)}
+    .step-done{color:#eb9a70;font-weight:700}
+    .step-active{color:#fff;font-weight:800;text-shadow:0 0 12px rgba(224,113,74,0.8)}
     .step-pending{color:rgba(255,255,255,0.3)}
 
     /* Audio wave bars */
-    .wave-bar{width:3px;border-radius:99px;background:linear-gradient(to top,#a78bfa,#7c3aed);transform-origin:bottom;animation:audioBounce 0.6s ease-in-out infinite}
+    .wave-bar{width:3px;border-radius:99px;background:linear-gradient(to top,#eb9a70,#c9572f);transform-origin:bottom;animation:audioBounce 0.6s ease-in-out infinite}
     .wave-bar:nth-child(1){--h:12px;animation-delay:0s}
     .wave-bar:nth-child(2){--h:22px;animation-delay:.1s}
     .wave-bar:nth-child(3){--h:30px;animation-delay:.2s}
@@ -83,7 +93,25 @@
     #live2d-canvas{display:block}
     
     /* Scan line effect */
-    .scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,rgba(139,92,246,0.6),transparent);animation:scanLine 4s linear infinite;pointer-events:none;z-index:5}
+    .scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,rgba(224,113,74,0.6),transparent);animation:scanLine 4s linear infinite;pointer-events:none;z-index:5}
+  
+    /* ===== yorimi brand light-theme overrides (additive; JS/markup untouched) ===== */
+    body{background:#f6f1e6!important;color:#2b2420!important}
+    .glass{background:rgba(255,255,255,.72)!important;border:1px solid #e6d7bf!important;box-shadow:0 18px 44px -28px rgba(224,113,74,.35)!important}
+    .glass-light{background:rgba(255,255,255,.55)!important;border:1px solid #ece0cc!important}
+    .glass-bright{background:rgba(255,255,255,.9)!important;border:1px solid #e6d7bf!important;box-shadow:0 20px 50px -30px rgba(224,113,74,.4)!important}
+    .text-white{color:#2b2420!important}
+    .text-white\/90,.text-white\/85,.text-white\/80{color:#37302a!important}
+    .text-white\/70,.text-white\/60{color:#5f544b!important}
+    .text-white\/50,.text-white\/45,.text-white\/40{color:#7d7266!important}
+    .text-white\/35,.text-white\/30,.text-white\/25,.text-white\/20,.text-white\/15{color:#a2978a!important}
+    .border-white\/30,.border-white\/20,.border-white\/10,.border-white\/5{border-color:#e6d7bf!important}
+    .bg-white\/40{background-color:rgba(255,255,255,.85)!important}
+    .bg-white\/20,.bg-white\/12,.bg-white\/10,.bg-white\/8,.bg-white\/6,.bg-white\/5,.bg-white\/3{background-color:rgba(43,36,32,.05)!important}
+    .step-active{color:#2b2420!important;text-shadow:none!important}
+    .step-pending{color:#a2978a!important}
+    ::selection{background:#f6cabf;color:#2b2420}
+
   </style>
 </head>
 <body>
@@ -157,7 +185,7 @@ const COMPANIONS = {
     visual_style:'original anime-inspired, bright, soft sci-fi, expressive, companion-like',
     interaction_style:'short spoken replies, warm presence, one-turn-at-a-time conversation',
     scenario:'acg', emoji:'✨',
-    gradient:'linear-gradient(135deg,#7c3aed,#4f46e5)',
+    gradient:'linear-gradient(135deg,#c9572f,#c9572f)',
     btnCls:'from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700',
     cardCls:'border-violet-500/30',
     badgeCls:'bg-violet-500/20 text-violet-200 border border-violet-400/30',
@@ -176,7 +204,7 @@ const COMPANIONS = {
     visual_style:'soft, cute, coffee-inspired, warm amber colors',
     interaction_style:'short encouragement plus concrete next step',
     scenario:'study', emoji:'☕',
-    gradient:'linear-gradient(135deg,#fbbf24,#f97316)',
+    gradient:'linear-gradient(135deg,#eb9a70,#e0714a)',
     btnCls:'from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600',
     cardCls:'border-amber-500/30',
     badgeCls:'bg-amber-500/20 text-amber-200 border border-amber-400/30',
@@ -195,7 +223,7 @@ const COMPANIONS = {
     visual_style:'soft pet-inspired, cute, friendly, rounded shapes',
     interaction_style:'playful routine reminders and gentle companionship',
     scenario:'pet', emoji:'🐾',
-    gradient:'linear-gradient(135deg,#fb7185,#ec4899)',
+    gradient:'linear-gradient(135deg,#eea79c,#eea79c)',
     btnCls:'from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600',
     cardCls:'border-rose-500/30',
     badgeCls:'bg-rose-500/20 text-rose-200 border border-rose-400/30',
@@ -1274,7 +1302,7 @@ function AnimatedACGFallback({speaking, size='full', sourceImg}){
       {/* Character portrait */}
       <img src={imgSrc} alt="Lumi" draggable={false}
         className={`relative z-10 acg-portrait anim-float ${speakCls} select-none`}
-        style={{maxHeight: size==='card' ? '260px' : '78vh', filter:`drop-shadow(0 0 ${speaking?'40px':'24px'} rgba(139,92,246,${speaking?'0.9':'0.6'})) drop-shadow(0 8px 32px rgba(0,0,0,0.5))`}}
+        style={{maxHeight: size==='card' ? '260px' : '78vh', filter:`drop-shadow(0 0 ${speaking?'40px':'24px'} rgba(224,113,74,${speaking?'0.9':'0.6'})) drop-shadow(0 8px 32px rgba(0,0,0,0.5))`}}
       />
       {/* Scan line */}
       <div className="scan-line"/>
@@ -1648,7 +1676,7 @@ function ScenarioSelector({onSelect}){
         </div>
         <h1 className="text-4xl font-black text-white mb-4 leading-tight">
           Yorimi stays with you<br/>
-          <span style={{background:'linear-gradient(90deg,#fbbf24,#f97316,#f43f5e)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+          <span style={{background:'linear-gradient(90deg,#eb9a70,#e0714a,#e0714a)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
             when starting feels hard.
           </span>
         </h1>
@@ -1955,7 +1983,7 @@ function GenerationProgress({scenario,sourceImg,onDone}){
           <div className="flex justify-center mb-8">
             <div className="relative">
               <img src={sourceImg} alt="source" className="w-28 h-28 object-cover rounded-2xl shadow-2xl border border-violet-400/30" style={{filter:'drop-shadow(0 0 20px rgba(124,58,237,0.5))'}}/>
-              <div className="absolute inset-0 rounded-2xl" style={{background:'linear-gradient(135deg,transparent,rgba(124,58,237,0.3))',border:'1px solid rgba(167,139,250,0.4)'}}/>
+              <div className="absolute inset-0 rounded-2xl" style={{background:'linear-gradient(135deg,transparent,rgba(124,58,237,0.3))',border:'1px solid rgba(224,113,74,0.4)'}}/>
               <div className="absolute -bottom-2 -right-2 bg-violet-500/30 border border-violet-400/40 rounded-lg px-2 py-0.5 text-xs text-violet-300 font-semibold backdrop-blur">
                 Your image
               </div>
@@ -2527,7 +2555,7 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
                 onClick={retryVideoPlayback}
                 onError={()=>{setVideoError(true);setVoiceStatus('Video asset unavailable. Showing a static companion; text chat still works.');}}
                 className="relative z-10 h-full max-h-full max-w-full rounded-3xl object-contain shadow-2xl border border-violet-300/20"
-                style={{filter:`drop-shadow(0 0 ${speaking?'44px':'24px'} ${speaking?'rgba(139,92,246,0.72)':'rgba(139,92,246,0.42)'})`}}
+                style={{filter:`drop-shadow(0 0 ${speaking?'44px':'24px'} ${speaking?'rgba(224,113,74,0.72)':'rgba(224,113,74,0.42)'})`}}
               />
             ) : (
               <button onClick={()=>{setVideoError(false);setActiveVideo(COMPANION_IDLE_VIDEO);}} className="relative z-10 h-full w-full flex flex-col gap-4 items-center justify-center rounded-3xl border border-violet-300/20 bg-violet-500/10 text-8xl">
