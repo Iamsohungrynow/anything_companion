@@ -9,106 +9,70 @@
 </p>
 
 <p align="center">
-  AI character presence for study, work, routines, creator IP interaction, and 3D desktop companionship.
-</p>
-
-<p align="center">
-  <a href="https://github.com/Iamsohungrynow/Yorimi">GitHub</a>
-  |
-  <a href="https://compagnon-eveil.vercel.app/">Live Demo</a>
+  An AI character companion for study, daily life, and creator IP, with a warm
+  hand-drawn identity and a path toward a 3D desktop device.
 </p>
 
 ---
 
-## What Yorimi Is
+## What's in this repo
 
-Yorimi is an adaptive AI companion system built around character presence, not generic chat. It combines:
+Yorimi is **two apps that share one runtime**:
 
-- persona-consistent conversation
-- session memory and companion profile context
-- study, work, routine, and emotional check-in support
-- voice playback with browser fallback
-- expressive companion visuals and state feedback
-- a path toward physical 3D desktop embodiment
+1. **Runtime + companion demo** (repo root) - a Node backend (`server/`) exposing
+   `/api/*` (chat, TTS, STT) plus a self-contained companion demo
+   (`frontend/static/nextstep-companion.html`) with a live video companion, memory,
+   and voice. Deployed as Vercel serverless functions (`api/`) + static files
+   (see `vercel.json`).
+2. **Marketing site** (`web/`) - a Next.js 15 + Tailwind + Motion app: the bilingual
+   (中 / EN) landing page, app-screen mockups at `/mockups`, and the demo re-served at
+   `/demo`. It proxies `/api/*` to the runtime.
 
-The goal is to make a companion that feels coherent across tone, role, use case, and recent history, while still staying responsive to the user's latest message.
+## Run locally (two terminals)
 
-## Product Experience
-
-Yorimi is designed for moments when a user wants more than an answer. A companion can respond with personality, remember relevant context, and help the user move from hesitation into one small action.
-
-Typical use cases include:
-
-- study support and sprint starts
-- work focus and routine check-ins
-- low-energy or emotionally stuck moments
-- object-based companions and creator-owned characters
-- character-driven interaction systems for original IP
-
-## Current Prototype
-
-This repository contains the current Yorimi runtime prototype, including:
-
-- a standalone web companion demo
-- the OpenAI runtime adapter
-- schema-compatible fallback behavior
-- session and lightweight memory handling
-- browser and API-based voice paths
-- committed companion and hardware-demo assets
-
-The live demo currently uses an older deployment domain:
-
-```text
-https://compagnon-eveil.vercel.app/
-```
-
-That URL is only a deployment detail. The product and repository identity are Yorimi.
-
-## Demo
-
-- Live web demo: https://compagnon-eveil.vercel.app/
-- Local route: `http://127.0.0.1:3017/nextstep-companion.html`
-- Hardware proof GIF: [assets/hardware-demo.gif](./assets/hardware-demo.gif)
-- Hardware proof video: [assets/hardware-demo.mp4](./assets/hardware-demo.mp4)
-- Device state demo assets: [assets](./assets)
-
-## Run Locally
-
-```powershell
+```bash
+# 1) runtime + demo  ->  http://127.0.0.1:3017
 npm install
-Copy-Item .env.example .env
+cp .env.example .env        # add OPENAI_API_KEY etc. for live AI; mock works with no keys
 npm run dev
+
+# 2) marketing site  ->  http://localhost:3000
+cd web && npm install && npm run dev
 ```
 
-Open:
+- Landing: <http://localhost:3000>
+- App mockups: <http://localhost:3000/mockups>
+- Companion demo: <http://localhost:3000/demo> (or `http://127.0.0.1:3017/nextstep-companion.html`)
 
-```text
-http://127.0.0.1:3017/nextstep-companion.html
-```
+Without `OPENAI_API_KEY`, the runtime falls back to schema-compatible mock behavior.
 
-For live AI, set:
+## Deployment (two Vercel projects, both from `main`)
 
-```env
-OPENAI_API_KEY=your_key_here
-USE_MOCK_AI=false
-```
+The two apps are two Vercel projects imported from this same repo:
 
-Without `OPENAI_API_KEY`, the backend falls back to schema-compatible mock behavior for rendering and failure handling.
+| Project | Root Directory | Serves |
+|---|---|---|
+| **Runtime + demo** | repo root | `/api/*` functions + the companion demo at `/` |
+| **Marketing site** | `web` | the landing at `/`, `/mockups`, `/demo`; proxies `/api/*` to the runtime |
 
-## Repository Structure
+> Your **public site is the marketing-site project** - its `/` is the landing page.
+> The runtime project's URL is used only as the API backend (via the `YORIMI_API_ORIGIN`
+> env var on the marketing-site project). Step-by-step: [`web/README.md`](./web/README.md).
 
-- [frontend/static](./frontend/static) - served standalone HTML demo and companion data
-- [frontend/companion-experience](./frontend/companion-experience) - interaction-system source files
-- [server/engines/openai](./server/engines/openai) - OpenAI adapter
-- [server/engines/mock](./server/engines/mock) - emergency fallback logic
-- [server/engines/runtime](./server/engines/runtime) - orchestration and runtime guards
-- [server/tests](./server/tests) - contract and smoke tests
-- [assets](./assets) - companion visuals and demo media
-- [api](./api) - Vercel serverless wrappers
+Provider keys (OpenAI / Fish Audio / Doubao / Volcano) live in the **runtime** project's
+environment variables, not the marketing site.
+
+## Repository structure
+
+- [`web/`](./web) - Next.js marketing site (landing, mockups, `/demo`)
+- [`frontend/static`](./frontend/static) - standalone companion demo HTML + data
+- [`frontend/companion-experience`](./frontend/companion-experience) - interaction-system source
+- [`server/`](./server) - Node runtime: provider engines, orchestration, sessions, tests
+- [`api/`](./api) - Vercel serverless wrappers for the runtime
+- [`assets/`](./assets) - brand, companion visuals, hardware-demo media
 
 ## Notes
 
-- Normal chat should use the OpenAI runtime when `OPENAI_API_KEY` is configured.
+- The visible assistant message renders from `answer` first, then `reply`.
 - Mock behavior is fallback only.
-- The visible assistant message should render from `answer` first, then `reply`.
 - Voice is progressive enhancement; typing and reading must always work.
