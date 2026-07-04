@@ -1,43 +1,53 @@
 # Yorimi Web
 
-Marketing landing page + app-screen mockups for Yorimi, the AI character companion.
+The Yorimi web app: the bilingual landing page, app-screen mockups, the companion demo,
+and the whole `/api/*` runtime, all served by one Next.js app.
 Next.js (App Router) + TypeScript + Tailwind v4 + Motion.
 
 ## Run
 
 ```bash
 cd web
-npm install      # already run once; re-run if deps change
-npm run dev      # http://localhost:3000
+npm install
+cp .env.example .env   # add OPENAI_API_KEY etc. for live AI; mock works with no keys
+npm run dev            # http://localhost:3000
 ```
 
 - `/` — the landing page
-- `/demo` — the full companion demo (served from `public/demo.html`), whose `/api/*` calls are proxied to the runtime
+- `/demo` — the full companion demo (served from `public/demo.html`)
 - `/mockups` — Home / Countdown / Chat app-screen mockups
+- `/api/*` — the Yorimi runtime (chat incl. SSE, TTS, STT), bundled into the app
 
 ```bash
 npm run build      # production build (verified passing)
 npm run typecheck  # tsc --noEmit
 ```
 
-## Deploy (Vercel, as its own project)
+## Deploy (one Vercel project)
 
-This app lives in the `web/` subfolder; the repo root is a separate (backend) Vercel
-project. Deploy `web/` as its **own** project:
+Import the repo as a single Vercel project:
 
-1. Vercel dashboard: New Project, import the Yorimi repo.
-2. Set **Root Directory** to `web`. The framework preset auto-detects **Next.js**.
-3. Set **Production Branch** to `main` (the `web/` app lives on `main`).
-4. Add an Environment Variable:
-   - `YORIMI_API_ORIGIN` = your deployed backend URL (e.g. `https://yorimi.vercel.app`).
-     This is where `/api/*` (chat, TTS, STT) is proxied. Without it, API calls fail in prod.
+1. New Project, import the repo.
+2. Set **Root Directory** to `web` (framework auto-detects Next.js).
+3. Set **Production Branch** to `main`.
+4. Add the runtime keys as Environment Variables (see `.env.example`):
+   `OPENAI_API_KEY`, `FISH_AUDIO_API_KEY`, `FISH_AUDIO_REFERENCE_ID`, `VOLC_*`, etc.
 5. Deploy.
 
-Notes:
-- `/api/*` is a server-side rewrite (see `next.config.mjs`), so no CORS setup is needed and no
-  provider keys live in this project.
-- Voice/chat provider keys (Fish, OpenAI, etc.) belong to the **backend** project's env, not here.
-- `/demo` and its `/assets/*` media are served statically from `public/`.
+One project serves `/` (landing), `/mockups`, `/demo`, and `/api/*`. No proxy, no second project.
+
+### How the API is served
+
+`app/api/[...path]/route.ts` loads the Yorimi runtime, pre-bundled into one self-contained
+file at `server/runtime.bundle.cjs` (all internal requires inlined, only Node built-ins
+external), via Node's native require at runtime; `next.config.mjs` trace-includes that file
+into the serverless function. The bundle is committed. Regenerate it from `/server` with:
+
+```bash
+npm run build:runtime
+```
+
+Without provider keys, chat falls back to mock and TTS/STT report "not configured".
 
 ## Design system (locked)
 

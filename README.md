@@ -17,58 +17,51 @@
 
 ## What's in this repo
 
-Yorimi is **two apps that share one runtime**:
+The product is the **`web/`** app: a Next.js 15 + Tailwind + Motion site that serves
+everything from one deployment:
 
-1. **Runtime + companion demo** (repo root) - a Node backend (`server/`) exposing
-   `/api/*` (chat, TTS, STT) plus a self-contained companion demo
-   (`frontend/static/nextstep-companion.html`) with a live video companion, memory,
-   and voice. Deployed as Vercel serverless functions (`api/`) + static files
-   (see `vercel.json`).
-2. **Marketing site** (`web/`) - a Next.js 15 + Tailwind + Motion app: the bilingual
-   (中 / EN) landing page, app-screen mockups at `/mockups`, and the demo re-served at
-   `/demo`. It proxies `/api/*` to the runtime.
+- `/` - the bilingual (中 / EN) landing page
+- `/mockups` - app-screen mockups
+- `/demo` - the full companion demo (live video companion, memory, voice)
+- `/api/*` - the Yorimi runtime (chat incl. SSE streaming, TTS, STT), bundled into the app
 
-## Run locally (two terminals)
+The canonical runtime source lives at **`/server`** (Node). It is bundled into the web
+app as a single self-contained file (`web/server/runtime.bundle.cjs`) via
+`npm run build:runtime`, so the web app needs no separate backend. The repo root also
+keeps the original standalone runtime (`/server`, `/api`, `vercel.json`) which can still
+be deployed on its own, but the `web/` app supersedes it.
+
+## Run locally
 
 ```bash
-# 1) runtime + demo  ->  http://127.0.0.1:3017
+cd web
 npm install
 cp .env.example .env        # add OPENAI_API_KEY etc. for live AI; mock works with no keys
-npm run dev
-
-# 2) marketing site  ->  http://localhost:3000
-cd web && npm install && npm run dev
+npm run dev                 # http://localhost:3000  (landing + /demo + /api/*)
 ```
 
-- Landing: <http://localhost:3000>
-- App mockups: <http://localhost:3000/mockups>
-- Companion demo: <http://localhost:3000/demo> (or `http://127.0.0.1:3017/nextstep-companion.html`)
+One server serves the landing, the demo, and the whole API. Without keys, chat falls
+back to schema-compatible mock behavior and TTS/STT report "not configured".
 
-Without `OPENAI_API_KEY`, the runtime falls back to schema-compatible mock behavior.
+## Deployment (one Vercel project)
 
-## Deployment (two Vercel projects, both from `main`)
+Import this repo as a single Vercel project:
 
-The two apps are two Vercel projects imported from this same repo:
+1. New Project, import the repo.
+2. **Root Directory = `web`** (framework auto-detects Next.js).
+3. **Production Branch = `main`**.
+4. Add the runtime keys as Environment Variables (`OPENAI_API_KEY`, `FISH_AUDIO_API_KEY`,
+   `FISH_AUDIO_REFERENCE_ID`, `VOLC_*`, etc. - see `web/.env.example`).
+5. Deploy.
 
-| Project | Root Directory | Serves |
-|---|---|---|
-| **Runtime + demo** | repo root | `/api/*` functions + the companion demo at `/` |
-| **Marketing site** | `web` | the landing at `/`, `/mockups`, `/demo`; proxies `/api/*` to the runtime |
-
-> Your **public site is the marketing-site project** - its `/` is the landing page.
-> The runtime project's URL is used only as the API backend (via the `YORIMI_API_ORIGIN`
-> env var on the marketing-site project). Step-by-step: [`web/README.md`](./web/README.md).
-
-Provider keys (OpenAI / Fish Audio / Doubao / Volcano) live in the **runtime** project's
-environment variables, not the marketing site.
+That one project serves the landing, `/demo`, and `/api/*`. No proxy, no second project.
 
 ## Repository structure
 
-- [`web/`](./web) - Next.js marketing site (landing, mockups, `/demo`)
-- [`frontend/static`](./frontend/static) - standalone companion demo HTML + data
-- [`frontend/companion-experience`](./frontend/companion-experience) - interaction-system source
-- [`server/`](./server) - Node runtime: provider engines, orchestration, sessions, tests
-- [`api/`](./api) - Vercel serverless wrappers for the runtime
+- [`web/`](./web) - the app (landing, mockups, demo, and the bundled `/api/*` runtime)
+- [`server/`](./server) - canonical runtime source (bundled into `web/` via `npm run build:runtime`)
+- [`frontend/static`](./frontend/static) - the standalone companion demo HTML + data
+- [`api/`](./api) - Vercel serverless wrappers for the standalone runtime (legacy)
 - [`assets/`](./assets) - brand, companion visuals, hardware-demo media
 
 ## Notes
@@ -76,3 +69,4 @@ environment variables, not the marketing site.
 - The visible assistant message renders from `answer` first, then `reply`.
 - Mock behavior is fallback only.
 - Voice is progressive enhancement; typing and reading must always work.
+- Regenerate the web app's runtime bundle after changing `/server`: `cd web && npm run build:runtime`.
