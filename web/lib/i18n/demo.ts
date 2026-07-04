@@ -1,0 +1,465 @@
+// ============================================================
+// Bilingual UI-chrome copy for the /demo companion experience.
+// zh is the default rendering; en is the toggle.
+// Both locales share the exact same shape. Dynamic chat content
+// (companion replies, goals, tasks) comes from the runtime/mock
+// and is not translated here. ZERO em-dashes or en-dashes.
+// ============================================================
+
+export const demoCopy = {
+  zh: {
+    header: { home: "回到首页" },
+
+    common: {
+      back: "返回",
+    },
+
+    scenarioNames: { study: "学习", acg: "ACG", pet: "宠物" },
+
+    scenario: {
+      badge: "陪伴到行动 AI",
+      headlineTop: "在你难以开始的时候，",
+      headlineAccent: "有个伙伴一直陪着你。",
+      subtitleTop: "它读懂你的状态，给你温柔的支持，",
+      subtitleBottom: "陪你迈出小小的第一步。",
+      proofChips: ["察觉你的状态", "拆解微任务", "记住什么最有用"],
+      ribbon: "★ 主要演示",
+      studyTitle: "学习陪伴",
+      studySubtitle: "当你迟迟无法开始时",
+      thesisTop: "不是任务清单，也不只是 AI 朋友。",
+      thesisBottom: "先给你陪伴的存在感，再陪你开始。",
+      features: [
+        "陪伴之魂，属于你的语气、性格与存在感",
+        "察觉你卡住、疲惫、被压垮或难以开始的时刻",
+        "生成 2 到 4 个微任务，并开启计时冲刺",
+        "记住你如何最容易开始，每一次都更懂你",
+      ],
+      cta: "创建我的伙伴",
+      otherLabel: "同一引擎，其它伙伴",
+      acg: "ACG 角色陪伴",
+      pet: "宠物陪伴",
+      toast: "即将推出，这个陪伴皮肤将由同一套陪伴到行动引擎驱动。",
+      journey: ["陪伴在场", "状态识别", "模式切换", "微任务与冲刺", "记忆更新"],
+    },
+
+    setup: {
+      back: "返回",
+      step: "第 1 步，共 2 步",
+      title: "塑造你的伙伴",
+      subtitle: "选择它的语气、角色，以及它该如何支持你。",
+      toneQuestion: "你希望伙伴听起来是什么样子？",
+      useCaseQuestion: "主要用途，它该帮你做什么？",
+      roleQuestion: "你希望伙伴扮演什么角色？",
+      ctaReady: "下一步：上传你的形象图",
+      ctaWait: "完成伙伴设置后继续",
+    },
+
+    upload: {
+      title: "上传或选择",
+      subtitleTemplate: "为你的{scenario}伙伴选择一张形象图",
+      uploadButton: "上传图片",
+      or: "或",
+      useDefault: "使用默认形象",
+      back: "返回",
+    },
+
+    companion: {
+      title: "认识你的伙伴",
+      personality: "性格",
+      backstory: "背景故事",
+      tone: "语气",
+      useCase: "用途",
+      interaction: "相处方式",
+      startChat: "开始对话",
+      back: "返回",
+    },
+
+    chat: {
+      online: "在线",
+      video: "视频",
+      messagePlaceholderTemplate: "给 {name} 发消息",
+      memoryButton: "记忆与总结",
+      play: "播放",
+      stop: "停止",
+      modeChanged: "模式已切换",
+      debug: "调试",
+      hideDebug: "隐藏调试",
+      voiceLocked: "锁定语音",
+      messagesLabel: "消息数",
+      typingLabel: "输入中",
+      companionStateLabel: "伙伴状态",
+      yes: "是",
+      no: "否",
+      micWait: "请等待回复",
+      micStart: "开始语音输入",
+      micStop: "停止录音",
+      micUnavailable: "语音输入不可用",
+      sendMessage: "发送消息",
+      typeFirst: "先输入一条消息",
+      waitingResponse: "正在等待回复...",
+      welcome: {
+        study: "嗨！我是 {name} ☕ 今天我们做点什么？",
+        acg: "你好，我是 {name} ✨ 我在这里陪着你。有什么想聊的？",
+        pet: "嘿！{name} 来啦 🐾 准备好回访了吗？现在感觉怎么样？",
+      },
+    },
+
+    task: {
+      adaptiveMode: "自适应模式面板",
+      detectedState: "识别到的状态",
+      analyzing: "分析中",
+      activeMode: "当前模式",
+      nextAction: "下一步行动",
+      goalUnderstanding: "目标理解",
+      microTaskPlan: "微任务计划",
+      min: "分钟",
+      sprintTimer: "冲刺计时",
+      pause: "暂停",
+      resume: "继续",
+      stopSprint: "停止冲刺",
+      timesUp: "时间到！做得很棒！",
+      anotherSprint: "再来一次冲刺",
+      checkIn: "回访",
+      noted: "已记录：",
+      memoryUpdated: "记忆已更新",
+      start: "开始",
+      startSessionDefault: "开始一段陪伴",
+    },
+
+    checkInOptions: {
+      Done: "完成了",
+      "Partly done": "完成了一部分",
+      "I got stuck": "卡住了",
+    },
+
+    states: {
+      idle: { label: "待命中", desc: "在等你" },
+      happy: { label: "开心", desc: "很乐意帮忙" },
+      thinking: { label: "思考中", desc: "正在分析" },
+      encouraging: { label: "鼓励中", desc: "为你加油" },
+      focused: { label: "专注", desc: "进入状态" },
+      resting: { label: "休息", desc: "稍作停顿" },
+      concerned: { label: "关心", desc: "在关注你" },
+    },
+
+    modes: {
+      "Encourage Mode": "鼓励模式",
+      "Study Sprint Mode": "学习冲刺模式",
+      "Check-in Mode": "回访模式",
+      "Routine Mode": "日常模式",
+      "Companion Mode": "陪伴模式",
+      "Focus Mode": "专注模式",
+      "Companion Presence Mode": "陪伴在场模式",
+      "Study Companion Mode": "学习陪伴模式",
+      "Routine Check-in Mode": "日常回访模式",
+      "Quiz Mode": "测验模式",
+    } as Record<string, string>,
+
+    video: {
+      backToChat: "返回对话",
+      goal: "目标",
+      nextSteps: "下一步",
+      memory: "记忆",
+      viewMemory: "查看记忆",
+    },
+
+    memory: {
+      sessionComplete: "本次陪伴完成",
+      titleTemplate: "{name} 记住了你。",
+      subtitleTop: "不只是你做了什么，而是你如何最能进入状态。",
+      subtitleBottom: "你的伙伴就是这样越来越懂得如何支持你。",
+      feelingLabel: "你当时的感受",
+      modeHelpedLabel: "起作用的模式",
+      workedLabel: "对你有用的方式",
+      workingOnLabel: "你当时在忙的事",
+      learnedTitleTemplate: "{name} 了解到关于你的事",
+      learnedLine1Template: "你用{length}更容易开始，{name} 会记住这一点。",
+      learnedLine2Template: "今天{mode}帮到了你。下次 {name} 可以更快切换过去。",
+      learnedLine3: "你的伙伴正在拼出如何专门支持你的画像。",
+      stepsTitle: "你这次迈出的步骤",
+      fromCompanionTemplate: "来自 {name}",
+      journeyTitle: "这次陪伴发生了什么",
+      journeySteps: ["陪伴在场", "状态识别", "模式切换", "冲刺开始", "记忆习得"],
+      buildTitle: "AI 辅助的构建流程",
+      buildSubtitle: "作为快速 MVP，使用 AI 辅助开发构建：",
+      buildTags: ["界面生成", "提示词迭代", "接口测试", "集成调试", "兜底设计"],
+      sameEngineTitle: "同一引擎，不同的陪伴表层",
+      sameEngineRows: [
+        ["学习", "识别状态，给予陪伴，从一件小事开始"],
+        ["ACG", "用同一套支持引擎，换上角色陪伴皮肤"],
+        ["宠物", "用同一套支持引擎，用于日常与回访时刻"],
+      ],
+      alignmentBadges: [
+        "答案优先呈现",
+        "模式感知支持",
+        "记忆更新可见",
+        "语音兜底保留",
+      ],
+      backHome: "回到首页",
+      tryAnother: "换一个场景试试",
+    },
+
+    tones: {
+      soft_supportive: "温柔支持型",
+      short_direct: "简短直接型",
+      cute_playful: "可爱活泼型",
+      coach_like: "教练型",
+      friend_like: "朋友型",
+    },
+
+    useCases: {
+      study: "帮我学习",
+      work: "帮我工作",
+      light_support: "轻情绪支持",
+      pet_companionship: "宠物陪伴",
+      routine: "提醒与日程",
+    },
+
+    roles: {
+      study_companion: "学习陪伴者",
+      emotional_support: "情绪支持伙伴",
+      memory_keeper: "记忆陪伴者",
+      daily_reminder: "日常提醒伙伴",
+    },
+  },
+
+  en: {
+    header: { home: "Home" },
+
+    common: {
+      back: "Back",
+    },
+
+    scenarioNames: { study: "study", acg: "ACG", pet: "pet" },
+
+    scenario: {
+      badge: "Companion-to-Action AI",
+      headlineTop: "A companion that stays with you",
+      headlineAccent: "when starting feels hard.",
+      subtitleTop: "It understands your state, gives gentle support,",
+      subtitleBottom: "and helps you take one small next step.",
+      proofChips: ["Detects your state", "Plans micro-tasks", "Remembers what helps"],
+      ribbon: "★ Main Demo",
+      studyTitle: "Study Companion",
+      studySubtitle: "For when you can't start",
+      thesisTop: "Not a task planner. Not just an AI friend.",
+      thesisBottom: "A companion that gives you presence, then helps you start.",
+      features: [
+        "Companion soul, your own tone, personality, and presence",
+        "Detects when you're stuck, tired, overwhelmed, or struggling to begin",
+        "Creates 2 to 4 micro-tasks and starts a timed sprint",
+        "Remembers how you start best, gets better each time",
+      ],
+      cta: "Create my companion",
+      otherLabel: "Same engine, other companions",
+      acg: "ACG Companion",
+      pet: "Pet Companion",
+      toast:
+        "Coming soon. This companion skin will be powered by the same Companion-to-Action engine.",
+      journey: [
+        "Companion presence",
+        "State detected",
+        "Mode switch",
+        "Micro-task + sprint",
+        "Memory update",
+      ],
+    },
+
+    setup: {
+      back: "Back",
+      step: "Step 1 of 2",
+      title: "Shape your companion",
+      subtitle: "Choose its tone, role, and how it should support you.",
+      toneQuestion: "How should your companion sound?",
+      useCaseQuestion: "Main use case, what should it help you with?",
+      roleQuestion: "What role should your companion play?",
+      ctaReady: "Next: Upload your image",
+      ctaWait: "Complete your companion setup to continue",
+    },
+
+    upload: {
+      title: "Upload or Choose",
+      subtitleTemplate: "Select an image for your {scenario} companion",
+      uploadButton: "Upload Image",
+      or: "Or",
+      useDefault: "Use Default",
+      back: "Back",
+    },
+
+    companion: {
+      title: "Meet Your Companion",
+      personality: "Personality",
+      backstory: "Backstory",
+      tone: "Tone",
+      useCase: "Use Case",
+      interaction: "How They Interact",
+      startChat: "Start Chat",
+      back: "Back",
+    },
+
+    chat: {
+      online: "Online",
+      video: "Video",
+      messagePlaceholderTemplate: "Message {name}",
+      memoryButton: "Memory & Summary",
+      play: "Play",
+      stop: "Stop",
+      modeChanged: "Mode Changed",
+      debug: "Debug",
+      hideDebug: "Hide debug",
+      voiceLocked: "Voice locked",
+      messagesLabel: "Messages",
+      typingLabel: "Typing",
+      companionStateLabel: "Companion state",
+      yes: "yes",
+      no: "no",
+      micWait: "Wait for response",
+      micStart: "Start voice input",
+      micStop: "Stop recording",
+      micUnavailable: "Voice input not available",
+      sendMessage: "Send message",
+      typeFirst: "Type a message first",
+      waitingResponse: "Waiting for response...",
+      welcome: {
+        study: "Hi! I'm {name} ☕ What are we working on today?",
+        acg: "Hello. I'm {name} ✨ I'm here with you. What's on your mind?",
+        pet: "Hey! {name} here 🐾 Ready for your check-in? How are you feeling?",
+      },
+    },
+
+    task: {
+      adaptiveMode: "Adaptive Mode Panel",
+      detectedState: "Detected State",
+      analyzing: "Analyzing",
+      activeMode: "Active Mode",
+      nextAction: "Next Action",
+      goalUnderstanding: "Goal Understanding",
+      microTaskPlan: "Micro-Task Plan",
+      min: "min",
+      sprintTimer: "Sprint Timer",
+      pause: "Pause",
+      resume: "Resume",
+      stopSprint: "Stop Sprint",
+      timesUp: "Time's up! Great work!",
+      anotherSprint: "Start another sprint",
+      checkIn: "Check-in",
+      noted: "Noted:",
+      memoryUpdated: "Memory Updated",
+      start: "Start",
+      startSessionDefault: "Start Session",
+    },
+
+    checkInOptions: {
+      Done: "Done",
+      "Partly done": "Partly done",
+      "I got stuck": "I got stuck",
+    },
+
+    states: {
+      idle: { label: "Idle", desc: "Waiting for you" },
+      happy: { label: "Happy", desc: "Excited to help" },
+      thinking: { label: "Thinking", desc: "Analyzing" },
+      encouraging: { label: "Encouraging", desc: "Rooting for you" },
+      focused: { label: "Focused", desc: "In the zone" },
+      resting: { label: "Resting", desc: "Taking a moment" },
+      concerned: { label: "Concerned", desc: "Checking on you" },
+    },
+
+    modes: {
+      "Encourage Mode": "Encourage Mode",
+      "Study Sprint Mode": "Study Sprint Mode",
+      "Check-in Mode": "Check-in Mode",
+      "Routine Mode": "Routine Mode",
+      "Companion Mode": "Companion Mode",
+      "Focus Mode": "Focus Mode",
+      "Companion Presence Mode": "Companion Presence Mode",
+      "Study Companion Mode": "Study Companion Mode",
+      "Routine Check-in Mode": "Routine Check-in Mode",
+      "Quiz Mode": "Quiz Mode",
+    } as Record<string, string>,
+
+    video: {
+      backToChat: "Back to Chat",
+      goal: "Goal",
+      nextSteps: "Next Steps",
+      memory: "Memory",
+      viewMemory: "View Memory",
+    },
+
+    memory: {
+      sessionComplete: "Session complete",
+      titleTemplate: "{name} remembers you.",
+      subtitleTop: "Not just what you did, but how you work best.",
+      subtitleBottom: "This is how your companion gets better at supporting you.",
+      feelingLabel: "How you were feeling",
+      modeHelpedLabel: "Mode that helped",
+      workedLabel: "What worked for you",
+      workingOnLabel: "What you were working on",
+      learnedTitleTemplate: "What {name} learned about you",
+      learnedLine1Template:
+        "You start better with {length}, {name} will remember this.",
+      learnedLine2Template:
+        "{mode} helped you today. Next time, {name} can go there faster.",
+      learnedLine3:
+        "Your companion is building a picture of how to support you specifically.",
+      stepsTitle: "The steps you took this session",
+      fromCompanionTemplate: "From {name}",
+      journeyTitle: "What happened this session",
+      journeySteps: [
+        "Companion presence",
+        "State detected",
+        "Mode switch",
+        "Sprint started",
+        "Memory learned",
+      ],
+      buildTitle: "AI-assisted Build Workflow",
+      buildSubtitle: "Built as a rapid MVP using AI-assisted development:",
+      buildTags: [
+        "UI generation",
+        "Prompt iteration",
+        "API testing",
+        "Integration debugging",
+        "Fallback design",
+      ],
+      sameEngineTitle: "Same engine, different companion surfaces",
+      sameEngineRows: [
+        ["Study", "Detect state, offer presence, start one small task"],
+        ["ACG", "Use the same support engine with a character companion skin"],
+        ["Pet", "Use the same support engine for routine and check-in moments"],
+      ],
+      alignmentBadges: [
+        "Answer-first rendering",
+        "Mode-aware support",
+        "Memory update visible",
+        "Voice fallback preserved",
+      ],
+      backHome: "Back to Home",
+      tryAnother: "Try Another Scenario",
+    },
+
+    tones: {
+      soft_supportive: "Soft and supportive",
+      short_direct: "Short and direct",
+      cute_playful: "Cute and playful",
+      coach_like: "Coach-like",
+      friend_like: "Friend-like",
+    },
+
+    useCases: {
+      study: "Help me study",
+      work: "Help me work",
+      light_support: "Light emotional support",
+      pet_companionship: "Pet companionship",
+      routine: "Reminders and routine",
+    },
+
+    roles: {
+      study_companion: "Study companion",
+      emotional_support: "Emotional support buddy",
+      memory_keeper: "Memory keeper",
+      daily_reminder: "Daily reminder buddy",
+    },
+  },
+};
+
+export type DemoCopy = (typeof demoCopy)["zh"];
