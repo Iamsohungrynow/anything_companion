@@ -24,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/Iamsohungrynow/Yorimi/issues"
   },
-  "homepage": "https://github.com/Iamsohungrynow/Yorimi#readme"
+  "homepage": "https://github.com/Iamsohungrynow/Yorimi#readme",
+  "dependencies": {
+    "undici": "^8.5.0"
+  }
 }

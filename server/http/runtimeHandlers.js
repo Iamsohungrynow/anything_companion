@@ -1,4 +1,6 @@
 const fs = require("fs");
+const https = require("https");
+const { randomUUID } = require("crypto");
 const path = require("path");
 const packageJson = require("../../package.json");
 const {
@@ -12,17 +14,24 @@ const {
   HTML_FILE,
   MAX_SESSIONS,
   OPENAI_MODEL,
-  STT_MODEL,
+  OPENAI_TIMEOUT_MS,
   PORT,
   ROOT_DIR,
   SESSION_TTL_MS,
+  STT_PROVIDER,
+  STT_MODEL,
+  VOLC_APP_ID,
+  VOLC_ACCESS_TOKEN,
+  VOLC_SECRET_KEY,
+  VOLC_ASR_CLUSTER,
   USE_MOCK_AI,
   VERCEL_HOST_SUFFIXES,
 } = require("../config");
 const { companionData } = require("../data");
-const { runTurn } = require("../engines/runtime/orchestrator");
-const { normalizeScenario } = require("../schemas");
-const { createSession, getSession, resetSession } = require("../store/sessionStore");
+const { runTurn, inferDefaultMode } = require("../engines/runtime/orchestrator");
+const { runDoubaoStream } = require("../engines/doubao/client");
+const { validateChatRequest, normalizeRuntimeResult, normalizeScenario } = require("../schemas");
+const { createSession, ensureSession, getSession, resetSession, updateSessionAfterTurn } = require("../store/sessionStore");
 
 const ttsCache = new Map();
 const MAX_TTS_CACHE_ENTRIES = 40;
@@ -116,19 +125,85 @@ async function handleSession(req, res) {
 async function handleChat(req, res) {
   if (!allowMethods(req, res, ["POST"])) return;
   const body = await readJson(req);
-  const result = await runTurn(body);
-  console.log(
-    "[api/chat]",
-    JSON.stringify({
-      openai_configured: Boolean(process.env.OPENAI_API_KEY),
-      mock_forced: USE_MOCK_AI,
-      runtime_source: result?.runtime_source || (result?.fallback_used ? "mock" : "openai"),
-      intent: result?.intent,
-      mode: result?.mode,
-      model: OPENAI_MODEL,
-    })
-  );
-  sendJson(res, 200, result);
+
+  // Contract-safe default: plain JSON unless the client opts into SSE streaming.
+  const wantsStream = String(req.headers.accept || "").includes("text/event-stream");
+  if (!wantsStream) {
+    const result = await runTurn(body);
+    console.log(
+      "[api/chat]",
+      JSON.stringify({
+        openai_configured: Boolean(process.env.OPENAI_API_KEY),
+        mock_forced: USE_MOCK_AI,
+        runtime_source: result?.runtime_source || (result?.fallback_used ? "mock" : "openai"),
+        intent: result?.intent,
+        mode: result?.mode,
+        model: OPENAI_MODEL,
+      })
+    );
+    sendJson(res, 200, result);
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+
+  const emit = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    let runtimeResult;
+
+    if (!USE_MOCK_AI) {
+      const parsed = validateChatRequest(body);
+      if (!parsed.ok) { emit("error", { error: parsed.error }); res.end(); return; }
+
+      const input = parsed.value;
+      const session = ensureSession(input);
+
+      try {
+        // Real streaming path — sentences arrive before LLM finishes
+        const raw = await runDoubaoStream({ input, session }, (sentence) => {
+          emit("reply_chunk", { text: sentence });
+        });
+        runtimeResult = normalizeRuntimeResult(raw, {
+          session_id: session.id,
+          message: input.message,
+          defaultMode: inferDefaultMode(input),
+          fallback_used: false,
+        });
+        runtimeResult.runtime_source = "doubao";
+        const updated = updateSessionAfterTurn(session, input, runtimeResult);
+        runtimeResult.memory = updated.memory;
+      } catch (streamErr) {
+        console.error("[handleChat] stream failed, falling back to runTurn:", streamErr?.message);
+        runtimeResult = await runTurn(body);
+        // Emit reply chunks from the fallback result so frontend TTS still works
+        splitSentences(runtimeResult.reply || runtimeResult.answer || "")
+          .forEach((s) => emit("reply_chunk", { text: s }));
+      }
+    } else {
+      runtimeResult = await runTurn(body);
+      splitSentences(runtimeResult.reply || runtimeResult.answer || "")
+        .forEach((s) => emit("reply_chunk", { text: s }));
+    }
+
+    console.log("[api/chat] source=%s intent=%s", runtimeResult?.runtime_source, runtimeResult?.intent);
+    emit("result", runtimeResult);
+  } catch (err) {
+    emit("error", { error: err.message || "Internal error" });
+  }
+
+  res.end();
+}
+
+function splitSentences(text) {
+  return text
+    .split(/(?<=[.!?。！？])\s+|(?<=[。！？])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 4);
 }
 
 async function handleTts(req, res) {
@@ -150,67 +225,159 @@ async function handleStt(req, res) {
     return;
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    sendJson(res, 503, { ok: false, error: "OpenAI STT is not configured." });
-    return;
-  }
-
   const audioBuffer = Buffer.from(audio, "base64");
   if (!audioBuffer.length) {
     sendJson(res, 400, { ok: false, error: "audio must be a valid base64 string." });
     return;
   }
 
-  const baseMimeType = mimeType.split(";")[0].trim() || "audio/webm";
-  const extension = getAudioExtension(baseMimeType);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Math.max(OPENAI_TIMEOUT_MS, 20000));
+  const timeout = setTimeout(() => controller.abort(), Math.max(OPENAI_TIMEOUT_MS, 25000));
 
   try {
-    const formData = new FormData();
-    formData.append("file", new Blob([audioBuffer], { type: baseMimeType }), `audio.${extension}`);
-    formData.append("model", STT_MODEL);
-    if (language) formData.append("language", language);
-
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const providerBody = await response.text();
-      sendJson(res, 502, {
-        ok: false,
-        error: `OpenAI STT request failed (${response.status}).`,
-        provider: "openai",
-        model: STT_MODEL,
-        provider_status: response.status,
-        provider_body: providerBody.slice(0, 200),
-      });
-      return;
+    // Volcano needs its own credentials; fall back to OpenAI Whisper when they are absent.
+    const volcanoConfigured = Boolean(VOLC_APP_ID && VOLC_ACCESS_TOKEN);
+    if (STT_PROVIDER === "openai" || !volcanoConfigured) {
+      await sttOpenAI(res, audioBuffer, mimeType, language, controller);
+    } else {
+      await sttVolcano(res, audio, mimeType, controller);
     }
-
-    const data = await response.json();
-    sendJson(res, 200, {
-      text: String(data?.text || ""),
-      provider: "openai",
-      model: STT_MODEL,
-    });
   } catch (error) {
     const isTimeout = error?.name === "AbortError";
     sendJson(res, isTimeout ? 504 : 502, {
       ok: false,
-      error: isTimeout ? "OpenAI STT timed out." : "OpenAI STT request failed.",
-      provider: "openai",
-      model: STT_MODEL,
+      error: isTimeout ? "STT timed out." : "STT request failed.",
+      provider: STT_PROVIDER,
+      error_name: error?.name,
+      error_message: error?.message,
     });
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function sttOpenAI(res, audioBuffer, mimeType, language, controller) {
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(res, 503, { ok: false, error: "OpenAI STT is not configured." });
+    return;
+  }
+
+  const baseMimeType = mimeType.split(";")[0].trim() || "audio/webm";
+  const extension = getAudioExtension(baseMimeType);
+
+  const formData = new FormData();
+  formData.append("file", new Blob([audioBuffer], { type: baseMimeType }), `audio.${extension}`);
+  formData.append("model", STT_MODEL);
+  // Whisper expects ISO-639-1 ("zh", "en"); browsers send BCP-47 ("zh-CN").
+  if (language) formData.append("language", language.split("-")[0]);
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const providerBody = await response.text();
+    sendJson(res, 502, {
+      ok: false,
+      error: `OpenAI STT request failed (${response.status}).`,
+      provider: "openai",
+      model: STT_MODEL,
+      provider_status: response.status,
+      provider_body: providerBody.slice(0, 200),
+    });
+    return;
+  }
+
+  const data = await response.json();
+  sendJson(res, 200, {
+    text: String(data?.text || ""),
+    provider: "openai",
+    model: STT_MODEL,
+  });
+}
+
+async function sttVolcano(res, audio, mimeType, controller) {
+  if (!VOLC_APP_ID || !VOLC_ACCESS_TOKEN) {
+    sendJson(res, 503, { error: "VOLC_APP_ID and VOLC_ACCESS_TOKEN are required for Volcano STT." });
+    return;
+  }
+
+  const baseMime = mimeType.split(";")[0].trim();
+  const format = baseMime.includes("mp4") ? "mp4" : baseMime.includes("ogg") ? "ogg" : "webm";
+  const codec = mimeType.includes("opus") ? "opus" : "default";
+
+  const payload = {
+    app: { appid: VOLC_APP_ID, token: VOLC_ACCESS_TOKEN, cluster: VOLC_ASR_CLUSTER },
+    user: { uid: "companion_stt" },
+    request: {
+      reqid: randomUUID(),
+      nbest: 1,
+      workflow: "audio_in,resample,partition,vad,fe,decode,itn,nlu_punctuation",
+      show_utterances: false,
+      result_type: "full",
+      sequence: -1,
+    },
+    audio: { format, codec, sample_rate: 16000, bits: 16, channel: 1, language: "zh-CN", audio_data: audio },
+  };
+
+  const bodyStr = JSON.stringify(payload);
+
+  const data = await new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "openspeech.bytedance.com",
+        path: "/api/v1/asr",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(bodyStr),
+          // Bearer;{token} is the correct format for Volcano Engine one-shot ASR
+          Authorization: `Bearer;${VOLC_ACCESS_TOKEN}`,
+        },
+      },
+      (r) => {
+        let raw = "";
+        r.on("data", (chunk) => { raw += chunk; });
+        r.on("end", () => {
+          try { resolve({ status: r.statusCode, body: JSON.parse(raw) }); }
+          catch { resolve({ status: r.statusCode, body: { message: raw } }); }
+        });
+      },
+    );
+    req.on("error", reject);
+    if (controller?.signal) {
+      controller.signal.addEventListener("abort", () => req.destroy(new Error("aborted")));
+    }
+    req.write(bodyStr);
+    req.end();
+  });
+
+  if (data.status !== 200) {
+    sendJson(res, 502, {
+      error: `STT provider error (${data.status}).`,
+      provider: "volcano",
+      provider_status: data.status,
+      provider_body: JSON.stringify(data.body).slice(0, 200),
+    });
+    return;
+  }
+
+  if (data.body.code !== 1000) {
+    sendJson(res, 502, {
+      error: `Volcano STT error: ${data.body.message || "unknown"}`,
+      provider: "volcano",
+      provider_code: data.body.code,
+    });
+    return;
+  }
+
+  const text = (data.body.utterances || []).map((u) => u.text).join("").trim();
+  sendJson(res, 200, { text, provider: "volcano", cluster: VOLC_ASR_CLUSTER });
 }
 
 async function handleSessionMemory(req, res, id) {
@@ -237,6 +404,8 @@ function buildHealthPayload() {
     host: HOST,
     allowed_hosts: ALLOWED_HOSTS,
     openai_configured: Boolean(process.env.OPENAI_API_KEY),
+    stt_provider: STT_PROVIDER,
+    stt_volcano_configured: Boolean(VOLC_APP_ID && VOLC_ACCESS_TOKEN),
     stt_model: STT_MODEL,
     fish_audio_configured: Boolean(FISH_AUDIO_API_KEY && FISH_AUDIO_REFERENCE_ID),
     mock_forced: USE_MOCK_AI,
@@ -256,7 +425,7 @@ function allowMethods(req, res, methods) {
 function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-    sendJson(res, 403, { ok: false, error: "Origin not allowed." });
+    sendJson(res, 403, { ok: false, error: `Origin not allowed: ${origin}` });
     return false;
   }
 

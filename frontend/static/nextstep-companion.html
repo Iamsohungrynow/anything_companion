@@ -356,7 +356,7 @@ function getMicroTaskItems(result){
   }));
 }
 
-async function generateChatResult(companion, msg, channel='text', messages=[]) {
+async function generateChatResult(companion, msg, channel='text', messages=[], { onChunk } = {}) {
   if(FORCE_LOCAL_RUNTIME){
     return buildMarkedLocalFallback(companion,msg,messages,'Browser-only backup selected with ?runtime=local.');
   }
@@ -379,7 +379,7 @@ async function generateChatResult(companion, msg, channel='text', messages=[]) {
         role:m.role==='companion'?'assistant':'user',
         content:m.content,
       })),
-    });
+    }, { onChunk });
     logChatRuntime({...normalized, assistantText:getAssistantText(normalized)});
     return normalized;
   } catch (err) {
@@ -410,16 +410,94 @@ function buildMarkedLocalFallback(companion,msg,messages,summary){
   return markedFallback;
 }
 
-async function requestRuntimeTurn(payload){
+async function requestRuntimeTurn(payload, { onChunk } = {}) {
   const res = await fetch('/api/chat', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload),
+    method: 'POST',
+    // Accept header opts into SSE streaming; without it the server returns plain JSON.
+    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`chat ${res.status}`);
-  const data = await res.json();
-  runtimeSessionId = data.session_id || runtimeSessionId;
-  return normalizeClientResult(data);
+
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let finalResult = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const events = buf.split('\n\n');
+    buf = events.pop(); // keep incomplete event
+    for (const evt of events) {
+      let evtType = 'message', data = '';
+      for (const line of evt.split('\n')) {
+        if (line.startsWith('event: ')) evtType = line.slice(7).trim();
+        else if (line.startsWith('data: ')) data = line.slice(6).trim();
+      }
+      if (!data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (evtType === 'reply_chunk') { if (onChunk) onChunk(parsed.text); }
+        else if (evtType === 'result') {
+          runtimeSessionId = parsed.session_id || runtimeSessionId;
+          finalResult = normalizeClientResult(parsed);
+        } else if (evtType === 'error') throw new Error(parsed.error || 'stream error');
+      } catch (e) {
+        if (e.message.includes('stream error')) throw e;
+        console.warn('[sse] parse error:', e.message, data.slice(0, 80));
+      }
+    }
+  }
+
+  if (!finalResult) throw new Error('No result received from server');
+  return finalResult;
+}
+
+// ── Streaming TTS sentence queue ──────────────────────────────────────────────
+// Queues sentences from SSE reply_chunk events and speaks them via browser TTS,
+// chaining each utterance via onend so they play back-to-back without gaps.
+let _sTtsRunId = 0;
+let _sTtsQueue = [];
+let _sTtsPlaying = false;
+let _sTtsUsed = false;
+
+function streamTtsStart() {
+  _sTtsRunId++;
+  _sTtsQueue = [];
+  _sTtsPlaying = false;
+  _sTtsUsed = false;
+}
+
+function streamTtsEnqueue(text) {
+  if (!text || !text.trim()) return;
+  _sTtsUsed = true;
+  _sTtsQueue.push(text.trim());
+  if (!_sTtsPlaying) _sTtsDrain(_sTtsRunId);
+}
+
+function _sTtsDrain(runId) {
+  if (runId !== _sTtsRunId || !window.speechSynthesis) return;
+  if (!_sTtsQueue.length) { _sTtsPlaying = false; return; }
+  _sTtsPlaying = true;
+  const text = _sTtsQueue.shift();
+  const u = new SpeechSynthesisUtterance(text);
+  const pref = (typeof chooseNaturalVoice === 'function') ? chooseNaturalVoice() : null;
+  u.rate = 0.82; u.pitch = pref ? 0.9 : 1.04; u.volume = 0.9;
+  if (pref) u.voice = pref;
+  u.onend = () => _sTtsDrain(runId);
+  u.onerror = () => _sTtsDrain(runId);
+  window.speechSynthesis.speak(u);
+}
+
+function streamTtsWasUsed() { return _sTtsUsed; }
+
+function streamTtsStop() {
+  _sTtsRunId++;
+  _sTtsQueue = [];
+  _sTtsPlaying = false;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 function buildRuntimeUnavailableResult(companion, msg){
@@ -1065,61 +1143,59 @@ function speakBrowserText(text,onEnd,voiceWaits=0,runId=++speechRunId){
 function stopSpeaking(){try{speechRunId++;if(activeTtsSource){try{activeTtsSource.stop(0);}catch(e){}activeTtsSource=null;}if(activeTtsAudio){activeTtsAudio.pause();activeTtsAudio.src='';activeTtsAudio=null;}if(ttsSup) window.speechSynthesis.cancel();}catch(e){}}
 
 /* =================================================================
-   VOICE INPUT HOOK (useVoiceInput)
+   VOICE INPUT HOOK (useVoiceInput) — push-to-talk via /api/stt
    ================================================================= */
-function useVoiceInput(onReady){
+function useVoiceInput(onReady,lang='zh-CN'){
   const [listening,setListening]=useState(false);
   const [interim,setInterim]=useState('');
   const [err,setErr]=useState(null);
   const recognitionRef=useRef(null);
   const recorderRef=useRef(null);
-  const streamRef=useRef(null);
   const chunksRef=useRef([]);
-  const getSpeechRecognition=()=>typeof window!=='undefined'&&(window.SpeechRecognition||window.webkitSpeechRecognition)||null;
-  const sup=Boolean(getSpeechRecognition())||(typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined');
+  const streamRef=useRef(null);
+
+  const SpeechAPI=(typeof window!=='undefined')&&(window.SpeechRecognition||window.webkitSpeechRecognition)||null;
+  const hasMediaRecorder=typeof navigator!=='undefined'&&!!navigator.mediaDevices?.getUserMedia&&typeof MediaRecorder!=='undefined';
+  const sup=!!(SpeechAPI||hasMediaRecorder);
+
   useEffect(()=>()=>{
-    recognitionRef.current?.abort?.();
+    recognitionRef.current?.abort();
     if(recorderRef.current&&recorderRef.current.state!=='inactive') recorderRef.current.stop();
-    streamRef.current?.getTracks().forEach(track=>track.stop());
+    streamRef.current?.getTracks().forEach(t=>t.stop());
   },[]);
-  const blobToBase64=blob=>new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>{
-      const value=String(reader.result||'');
-      const [,base64='']=value.split(',');
-      resolve(base64);
-    };
-    reader.onerror=()=>reject(new Error('Audio encoding failed.'));
-    reader.readAsDataURL(blob);
-  });
-  const startWithSpeechRecognition=useCallback(SR=>{
-    const recognition=new SR();
-    recognition.lang='en-US';
-    recognition.interimResults=true;
-    recognition.maxAlternatives=1;
+
+  // ── Web Speech API path (Chrome/Edge — zero latency, native) ──────────────
+  const startWithSpeechAPI=useCallback(()=>{
+    const recognition=new SpeechAPI();
     recognition.continuous=false;
+    recognition.interimResults=true;
+    recognition.lang=lang;
     recognitionRef.current=recognition;
-    recognition.onstart=()=>{setListening(true);setErr(null);setInterim('');};
+    let finalSent=false;
+    recognition.onstart=()=>{setListening(true);setInterim('Listening…');};
     recognition.onresult=e=>{
-      let fin='',tmp='';
+      let interim='',final='';
       for(let i=e.resultIndex;i<e.results.length;i++){
-        if(e.results[i].isFinal) fin+=e.results[i][0].transcript;
-        else tmp+=e.results[i][0].transcript;
+        const r=e.results[i];
+        if(r.isFinal) final+=r[0].transcript;
+        else interim+=r[0].transcript;
       }
-      setInterim(tmp||fin);
-      if(fin&&onReady) onReady(fin.trim());
+      setInterim(interim||final);
+      if(final&&!finalSent){finalSent=true;if(onReady) onReady(final.trim());}
     };
     recognition.onerror=e=>{
       setListening(false);setInterim('');
       if(e.error!=='aborted'&&e.error!=='no-speech'){
         setErr(e.error==='not-allowed'
           ?'Microphone access denied. Please allow and try again.'
-          :'Voice input failed. Please type your message.');
+          :`Voice error: ${e.error}`);
       }
     };
     recognition.onend=()=>{setListening(false);setInterim('');recognitionRef.current=null;};
     recognition.start();
-  },[onReady]);
+  },[lang,onReady]);
+
+  // ── MediaRecorder + /api/stt fallback ─────────────────────────────────────
   const startWithMediaRecorder=useCallback(()=>{
     chunksRef.current=[];
     navigator.mediaDevices.getUserMedia({audio:true})
@@ -1129,57 +1205,62 @@ function useVoiceInput(onReady){
         const recorder=new MediaRecorder(stream,{mimeType});
         recorderRef.current=recorder;
         recorder.ondataavailable=e=>{if(e.data.size>0) chunksRef.current.push(e.data);};
-        recorder.onstop=async ()=>{
-          streamRef.current?.getTracks().forEach(track=>track.stop());
+        recorder.onstop=()=>{
+          streamRef.current?.getTracks().forEach(t=>t.stop());
           streamRef.current=null;
           const blob=new Blob(chunksRef.current,{type:mimeType});
           if(!blob.size){setInterim('');return;}
-          try{
-            const audio=await blobToBase64(blob);
-            const response=await fetch('/api/stt',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({audio,mimeType,lang:'en-US'}),
-            });
-            const data=await response.json();
-            setInterim('');
-            if(!response.ok||!data.text){setErr(data.error||'Voice input failed. Please type your message.');return;}
-            if(onReady) onReady(String(data.text).trim());
-          }catch(e){
-            setInterim('');
-            setErr('Voice input failed. Please type your message.');
-          }
+          const reader=new FileReader();
+          reader.onload=()=>{
+            const base64=reader.result.split(',')[1];
+            fetch('/api/stt',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({audio:base64,mimeType,lang})})
+              .then(r=>r.json())
+              .then(d=>{
+                setInterim('');
+                if(d.text&&onReady) onReady(d.text);
+                else if(d.error){
+                  const details=[
+                    d?.provider?`provider=${d.provider}`:null,
+                    d?.model?`model=${d.model}`:null,
+                    typeof d?.provider_status==='number'?`provider_status=${d.provider_status}`:null
+                  ].filter(Boolean).join(' ');
+                  const providerBody=typeof d?.provider_body==='string'&&d.provider_body.trim()?` ${d.provider_body.trim()}`:'';
+                  const suffix=details?` (${details})${providerBody}`:providerBody;
+                  setErr(`${d.error}${suffix}`);
+                }
+              })
+              .catch(()=>setErr('Voice input failed. Please type your message.'));
+          };
+          reader.readAsDataURL(blob);
         };
         recorder.start();
         setListening(true);
-        setErr(null);
-        setInterim('Recording');
+        setInterim('Recording…');
       })
       .catch(e=>{
-        setErr(e?.name==='NotAllowedError'
-          ?'Microphone access denied. Please allow and try again.'
-          :'Voice input failed. Please type your message.');
+        setErr(e.name==='NotAllowedError'?'Microphone access denied. Please allow and try again.':
+          'Voice input failed. Please type your message.');
       });
-  },[blobToBase64,onReady]);
+  },[lang,onReady]);
+
   const start=useCallback(()=>{
-    if(!sup){setErr('Voice input is not supported in this browser. Please type instead.');return;}
-    if(listening) return;
-    const SR=getSpeechRecognition();
+    if(listening||!sup) return;
     setErr(null);
-    if(SR){
-      try{startWithSpeechRecognition(SR);}catch(e){setErr('Voice input failed. Please type your message.');setListening(false);}
-      return;
-    }
-    startWithMediaRecorder();
-  },[listening,sup,startWithMediaRecorder,startWithSpeechRecognition]);
+    if(SpeechAPI) startWithSpeechAPI();
+    else startWithMediaRecorder();
+  },[listening,sup,SpeechAPI,startWithSpeechAPI,startWithMediaRecorder]);
+
   const stop=useCallback(()=>{
-    if(recognitionRef.current){recognitionRef.current.stop();return;}
-    if(recorderRef.current&&recorderRef.current.state!=='inactive'){
+    if(recognitionRef.current){
+      recognitionRef.current.stop();
+    } else if(recorderRef.current&&recorderRef.current.state!=='inactive'){
       recorderRef.current.stop();
       setListening(false);
-      setInterim('Transcribing');
+      setInterim('Transcribing…');
     }
   },[]);
+
   return{listening,interim,start,stop,err,sup};
 }
 
@@ -2102,6 +2183,7 @@ function CField({icon,label,children}){
 function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemory,onVideoMode}){
   const [input,setInput]=useState('');
   const [typing,setTyping]=useState(false);
+  const [streamingText,setStreamingText]=useState('');
   const [speakingId,setSpeakingId]=useState(null);
   const [pendingChatVoice,setPendingChatVoice]=useState(null);
   const [voiceErrorId,setVoiceErrorId]=useState(null);
@@ -2112,7 +2194,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
   const currentState=getCompanionStateInfo(typing?'thinking':lastResult?.companion_state);
   const runtimeFallback=Boolean(lastResult?.fallback_used);
 
-  const onVoice=useCallback(t=>setInput(t),[]);
+  const onVoice=useCallback(t=>{if(t.trim()) send(t.trim());},[]);
   const voice=useVoiceInput(onVoice);
 
   const handleMessageScroll=e=>{
@@ -2141,14 +2223,20 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
     if(!text.trim()) return;
     const userMessage=text.trim();
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
-    setInput('');setTyping(true);
-    await new Promise(r=>setTimeout(r,900));
-    const res=await generateChatResult(companion,userMessage,'text',messages);
-    setTyping(false);
+    setInput('');setTyping(true);setStreamingText('');
+    const res=await generateChatResult(companion,userMessage,'text',messages,{
+      onChunk:(sentence)=>{
+        setTyping(false);
+        setStreamingText(prev=>prev?prev+' '+sentence:sentence);
+      },
+    });
     const assistantText=getAssistantText(res);
     console.info('[yorimi_render]', {build_marker:BUILD_MARKER, surface:'chat', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,mode:res.mode,ts:Date.now()};
+    // Add final message before clearing streaming text — both land in the same React render,
+    // so there is no blank-bubble flash between streaming preview and the real message.
     onAdd(cMsg);
+    setStreamingText('');setTyping(false);
     onResult(res,userMessage);
   };
 
@@ -2297,7 +2385,7 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
             </div>
             </React.Fragment>
           ))}
-          {typing&&(
+          {(typing||streamingText)&&(
             <div className="flex justify-start msg-in">
               <div className="w-7 h-7 min-w-7 min-h-7 max-w-7 max-h-7 rounded-full flex items-center justify-center flex-none mr-2 mt-1 text-sm overflow-hidden" style={{background:c.gradient}}>
                 {companion.scenario==='acg'
@@ -2306,8 +2394,11 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
                     ? <img src={companion.sourceImageUrl} alt="" className="w-full h-full object-cover"/>
                     : companion.emoji}
               </div>
-              <div className={`px-4 py-3 rounded-2xl glass border ${c.cardCls}`}>
-                <div className="flex gap-1 items-center h-4">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-white/40 typing-dot" style={{animationDelay:`${i*150}ms`}}/>)}</div>
+              <div className={`px-4 py-3 rounded-2xl glass border ${c.cardCls} max-w-xs sm:max-w-sm`}>
+                {streamingText
+                  ? <p className="text-sm text-white/90 leading-relaxed">{streamingText}<span className="inline-block w-1.5 h-3.5 ml-1 bg-white/50 rounded-sm anim-bounce-soft"/></p>
+                  : <div className="flex gap-1 items-center h-4">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-white/40 typing-dot" style={{animationDelay:`${i*150}ms`}}/>)}</div>
+                }
               </div>
             </div>
           )}
@@ -2321,8 +2412,9 @@ function ChatInterface({companion,messages,onAdd,onResult,lastResult,onViewMemor
         {/* Input bar */}
         <div className="flex gap-2 items-end">
           {voice.sup?(
-            <button onClick={voice.listening?voice.stop:voice.start}
-              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all
+            <button onPointerDown={voice.start} onPointerUp={voice.stop} onPointerLeave={voice.stop} onPointerCancel={voice.stop}
+              style={{touchAction:'none'}}
+              className={`flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all select-none
                 ${voice.listening?'bg-red-500 text-white anim-bounce-soft':'glass border border-white/20 text-white/60 hover:bg-white/10'}`}>
               {voice.listening?'⏹':'🎤'}
             </button>
@@ -2475,13 +2567,20 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
     setSubtitle(`You: ${userMessage}`); setShowSub(true);
     onAdd({id:`u-${Date.now()}`,role:'user',content:userMessage,ts:Date.now()});
     await new Promise(r=>setTimeout(r,600));
-    const res=await generateChatResult(companion,userMessage,'stage',messages);
+    streamTtsStart();
+    const res=await generateChatResult(companion,userMessage,'stage',messages,{
+      onChunk:(sentence)=>{
+        setSubtitle(sentence); setShowSub(true);
+        streamTtsEnqueue(sentence);
+      },
+    });
     const assistantText=getAssistantText(res);
     console.info('[yorimi_render]', {build_marker:BUILD_MARKER, surface:'stage', final_assistantText:assistantText, answer:res.answer, reply:res.reply});
     const cMsg={id:`c-${Date.now()}`,role:'companion',content:assistantText,mode:res.mode,ts:Date.now()};
     onAdd(cMsg);
     onResult(res,userMessage);
-    playReply(assistantText,res.companion_state);
+    // Only fall back to full-text playback if streaming TTS never fired (e.g. mock or fallback)
+    if(!streamTtsWasUsed()) playReply(assistantText,res.companion_state);
   };
 
   const [inputText,setInputText]=useState('');
@@ -2591,8 +2690,9 @@ function VideoCompanionMode({companion,onChatMode,onViewMemory,messages,onAdd,on
         <div className="flex flex-col items-center gap-4 pb-8 w-full max-w-xs">
           {/* Mic button */}
           {voice.sup ? (
-            <button onClick={voice.listening?voice.stop:voice.start}
-              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all
+            <button onPointerDown={voice.start} onPointerUp={voice.stop} onPointerLeave={voice.stop} onPointerCancel={voice.stop}
+              style={{touchAction:'none'}}
+              className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-2xl transition-all select-none
                 ${voice.listening
                   ? 'bg-red-500 scale-110 shadow-red-500/50 anim-glow-pulse'
                   : 'glass border-2 border-violet-400/50 text-white hover:scale-105 hover:border-violet-400'}`}>
