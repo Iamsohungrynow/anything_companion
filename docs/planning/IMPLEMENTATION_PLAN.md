@@ -1,573 +1,300 @@
 # Implementation Plan
 
-## 1. Product Scope
+## 1. Product Direction
 
-Build Yorimi as a study-start and character-presence companion for users who are stuck, tired, overwhelmed, or procrastinating.
+Yorimi / Compagnon Eveil is an AI character presence platform.
 
-Keep the product focused:
+The product identity is broader than study support. It should support:
 
-- Main wedge: "I need to study, but I cannot start."
-- Main demo scenario: finance quiz preparation.
-- Main product value: turn vague intent into a small timed action.
-- Secondary value: remember what helps the user start.
+- study-start and low-motivation action support
+- work and routine companionship
+- creator-owned characters and original IP interaction
+- VTuber / ACGN / indie-game character presence
+- later display, projection, or desktop-presence experiences
 
-Do not lead with:
+Study remains the strongest near-term demo path, but it is no longer the whole product identity.
 
-- generic AI friend positioning
-- broad emotional support claims
-- complex 3D/video dependency
-- pet/ACG/work as equal headline products
-- long freeform chat
+Do not frame the product as:
 
-Pet, ACG, toy, and desktop-object companions are personalization skins over the same engine.
+- a generic chatbot
+- a pure productivity coach
+- a hardware-first business
+- a full creator marketplace on day one
 
-## 2. MVP User Flow
+## 2. Current Technical Baseline
 
-### Page 1 - Home / Product Framing
+The current repo already has a live runtime baseline.
 
-Purpose:
+- The live demo surface is `frontend/static/nextstep-companion.html`.
+- The backend seam is `server/http/runtimeHandlers.js`.
+- Normal chat should use OpenAI when `OPENAI_API_KEY` is configured.
+- Mock behavior is fallback only.
+- The visible assistant message must render `answer || reply`.
+- Voice is progressive enhancement and must always preserve typed-input fallback.
 
-Show the product idea in one screen.
+This means the safest implementation strategy is not a full rewrite. It is a controlled frontend replacement while preserving the current runtime contract.
 
-Add:
+## 3. Product Surfaces To Build
 
-- virtual companion visual: pet, study partner, desktop robot, or transparent character
-- product line: "Your adaptive AI companion for study, work, daily check-ins, and small actionable steps."
-- proof chips:
-  - Detects state
-  - Plans micro-tasks
-  - Remembers what helps
-- CTA: "Create my companion"
+### 3.1 Character Setup
 
-Implementation anchor:
+The setup flow should support more than object scan.
 
-- rework `ScenarioSelector`
-- default primary path should be Study
-- keep alternate companion types as small chips, not equal product cards
+Supported entry paths:
 
-### Page 2 - Personalization + Scan-to-Companion
+- study companion
+- creator-owned character
+- VTuber / fandom character
+- original character / indie IP
+- object-based or desktop companion
 
-Purpose:
+The output is a `CharacterProfile` that defines:
 
-Let users upload a pet, toy, figure, keychain, desk item, or meaningful object and turn it into a companion.
+- name
+- role
+- tone
+- use case
+- core persona
+- creator boundaries
+- linked visual and voice assets
 
-Tone of Voice:
+### 3.2 Runtime
 
-- Soft and supportive / 温柔支持型
-- Short and direct / 简短直接型
-- Cute and playful / 可爱活泼型
-- Coach-like / 教练型
-- Friend-like / 朋友型
+The runtime should prove three things:
 
-Main Use Case:
+- the character responds in a stable voice
+- the character can guide action when the use case calls for it
+- the character feels present through voice, state, and visual feedback
 
-- Help me study / 帮我学习
-- Help me work / 帮我工作
-- Light emotional support / 轻情绪支持
-- Pet companionship / 宠物陪伴
-- Reminder and routine / 提醒与日程
+Study Sprint Mode remains a key mode, but only one mode among several.
 
-Scan fields:
+### 3.3 Memory
 
-- What is this object or pet's name? / 它叫什么？
-- What personality should it have? / 它是什么性格？
-- What role should it play in your life? / 它在你的生活中扮演什么角色？
+Memory should be split conceptually into:
 
-Role options:
+- canon memory: fixed character facts and creator-defined boundaries
+- relationship memory: user preferences, naming, and recurring interaction style
+- session memory: current thread context
+- task memory: recent goals, check-ins, and action history when relevant
+- safety memory: moderation or age-mode handling
 
-- Study companion
-- Emotional support buddy
-- Memory keeper
-- Daily reminder pet
+### 3.4 Presence Layer
 
-Generated profile example:
+The presence layer covers:
 
-```json
-{
-  "name": "Mochi",
-  "type": "Digital Pet Companion",
-  "personality": ["gentle", "cute", "supportive"],
-  "role": "Helps the user start study tasks and gives daily check-ins"
-}
-```
+- avatar state changes
+- voice playback and interruption
+- stage / display mode
+- projection or desktop device sync later
 
-MVP behavior:
+Hardware remains an enhancement layer, not a phase-1 dependency.
 
-- accept uploaded/default image
-- generate profile from selected tone, use case, name, personality, and role
-- if OpenAI vision is ready, use image understanding
-- if not, mock scan result and still generate convincing profile
+## 4. AIRI Frontend Donor Strategy
 
-Implementation anchors:
+`moeru-ai/airi` is a frontend donor and reference architecture, not Yorimi's new platform base.
 
-- `ImageUpload`
-- `CompanionCardPage`
-- `COMPANIONS`
-- `SCENARIO_META`
+Rules:
 
-### Page 3 - Runtime Panel
+1. Reuse AIRI ideas and selected frontend patterns, especially around presence, voice UX, and avatar stage.
+2. Keep Yorimi's backend contract as the source of truth.
+3. Do not adopt AIRI auth, billing, WebSocket sync server, Postgres, or Redis as phase-1 dependencies.
+4. Keep same-origin deployment and the current static HTML fallback until the new frontend reaches parity.
 
-Purpose:
+Recommended shape:
 
-Prove the companion helps users act, not just talk.
+- keep the current runtime live
+- build a new frontend app in parallel
+- connect that frontend to Yorimi's existing APIs
+- cut over only after parity is verified
 
-Left side:
-
-- companion display
-- state-based visual reaction
-
-Companion states:
-
-- Idle / 待机
-- Happy / 开心
-- Thinking / 思考
-- Encouraging / 鼓励
-- Focused / 专注
-- Resting / 休息
-- Concerned / 关心
-
-Right side:
-
-- Current Mode: Encourage Mode / 当前模式：鼓励模式
-- Current Mode: Study Sprint Mode / 当前模式：学习冲刺模式
-- Goal Understanding
-- Micro-task Plan
-- Start button
-- Countdown
-- Check-in result
-- Orchestration trace
-
-Example input:
-
-```text
-I need to prepare for my finance quiz.
-```
-
-Example output:
-
-```text
-Goal Understanding:
-You want to prepare for your finance quiz, but the task feels too big right now.
-
-Micro-task Plan:
-Step 1: Open your notes. 2 minutes
-Step 2: Review 3 key formulas. 8 minutes
-Step 3: Try 2 practice questions. 10 minutes
-Step 4: Mark what you do not understand. 3 minutes
-
-Start Button:
-Start 10-min Sprint
-
-Check-in:
-How did it go?
-- Done
-- Partly done
-- I got stuck
-```
-
-Implementation anchors:
-
-- `ChatInterface`
-- `TaskSupportPanel`
-- `generateChatResultAsync`
-- `MODE_COLORS`
-
-### Page 4 - Memory Layer
-
-Purpose:
-
-Show that the companion is not a one-off chat.
-
-MVP memory fields:
-
-- User Name / 用户名字
-- Companion Settings / 角色设定
-- Preferred Mode / 常用模式
-- Recent Goals / 最近目标
-- Completed Micro-tasks / 完成的小任务
-- Check-in History / 每日 check-in 记录
-
-Display examples:
-
-- You prefer short and gentle reminders.
-- You are currently preparing for a finance quiz.
-- You completed 3 study sprints this week.
-- You often start better with 5-minute tasks.
-
-Implementation anchors:
-
-- `MemoryResult`
-- `memory_schema` in `frontend/static/nextstep-companion-data.json`
-- `safeMemory` in `App`
-
-### Page 5 - Display / Stage Mode
-
-Purpose:
-
-Make the companion usable on a large screen, projection, or desktop display.
-
-Keep only:
-
-- big companion
-- current emotional state
-- AI reply bubble
-- current mode
-- current micro-task
-
-Layout:
-
-- center: companion
-- top: "`Cappu` is in Study Sprint Mode"
-- bottom: companion reply
-- bottom-right: next step and duration
-
-Example display copy:
-
-```text
-Let's only do 10 minutes. Open your notes and find the first formula. I will stay with you.
-
-Next step: Review 3 formulas - 8 min
-```
-
-Implementation anchors:
-
-- `VideoCompanionMode`
-- `Live2DStage`
-- `AnimatedSvgFallback`
-- `SimpleCharacterDisplay`
-- `TaskMiniOverlay`
-
-## 3. Runtime Architecture
-
-Keep frontend and backend separated by one clean runtime contract.
+## 5. Target Architecture
 
 ```text
 Frontend
-  - home flow
-  - scan-to-companion setup
-  - runtime panel
-  - timer/check-in UI
-  - memory display
-  - stage mode
+  - new AIRI-derived web app
+  - character setup
+  - chat / voice / avatar runtime
+  - memory and presence views
+  - stage / display mode
+
+Frontend adapter
+  - maps UI state to Yorimi API requests
+  - preserves fallback behavior
 
 Backend
   - /api/chat
-  - orchestration layer
-  - OpenAI call
-  - structured output validation
-  - session memory
-  - fallback mock engine
+  - /api/tts
+  - /api/stt
+  - optional session endpoints
+  - orchestration
+  - memory update
+  - OpenAI primary runtime
+  - mock fallback
 ```
 
-## 4. Orchestration Layer
+The backend remains centered on `server/http/runtimeHandlers.js` and `server/engines/runtime/orchestrator.js`.
 
-For the hackathon, implement subagents as backend modules behind one endpoint.
+## 6. Runtime Contract To Preserve
+
+### Request
+
+The new frontend should preserve the current backend seam and request shape, including:
+
+- `session_id`
+- `scenario`
+- `message`
+- `channel`
+- `tone`
+- `role`
+- `use_case`
+- `companion`
+- `recent_messages`
+- `image_url`
+- `image_metadata`
+
+### Response
+
+The new frontend must handle:
+
+- `answer`
+- `reply`
+- `runtime_source`
+- `fallback_used`
+- `mode`
+- `detected_state`
+- `companion_state`
+- `micro_task_plan`
+- `memory`
+- `trace`
+
+Rendering rule:
+
+- visible assistant text uses `answer || reply`
+
+## 7. Frontend Migration Strategy
+
+### Phase 0 - Planning and Contract Freeze
+
+- freeze the runtime contract
+- define the new character schema
+- define the AIRI adoption boundaries
+- leave the current static HTML path intact
+
+### Phase 1 - Parallel Frontend Scaffold
+
+- create a new web frontend surface
+- strip AIRI-only server coupling
+- keep the UI focused on setup, runtime, memory, and stage mode
+- do not block on Live2D or advanced 3D
+
+### Phase 2 - Adapter Integration
+
+- implement the frontend adapter for `/api/chat`, `/api/tts`, and `/api/stt`
+- preserve browser speech and typed-input fallback
+- verify `answer || reply` rendering
+- verify visible fallback state
+
+### Phase 3 - Character Platform Core
+
+- implement `CharacterProfile`
+- implement canon / relationship / session / task memory boundaries
+- support creator-owned persona configuration
+- support study plus at least one non-study use case
+
+### Phase 4 - Voice and Interaction Polish
+
+- listening / thinking / speaking states
+- playback controls and interruption
+- timer / check-in only where relevant
+- stage and display polish
+
+### Phase 5 - Creator and Presence Expansion
+
+- creator whitelist tools
+- asset registry for voices, skins, and states
+- display or projection bridge
+- persistent storage hardening before external pilots
+
+## 8. Fastest Path In This Repo
+
+Do not replace the current runtime first.
+
+Fastest safe path:
+
+1. Keep `frontend/static/nextstep-companion.html` working as fallback.
+2. Build the next frontend in parallel.
+3. Point the new frontend at the current backend.
+4. Preserve same-origin deployment at first.
+5. Switch the primary surface only after parity checks pass.
+
+Do not start with:
+
+- a React/Vite rewrite of the current HTML only for its own sake
+- AIRI server adoption
+- auth and billing as phase-1 blockers
+- hardware sync as a dependency for chat quality
+
+## 9. Acceptance Criteria
+
+The next implementation phase is ready when this path works cleanly:
 
 ```text
-POST /api/chat
-  -> Orchestrator
-    -> Persona Skill
-    -> State Detector Skill
-    -> Mode Router Skill
-    -> Action Planner Skill
-    -> Companion Reply Skill
-    -> Memory Writer Skill
-  -> structured response
-  -> frontend adaptive UI
+home -> character setup -> runtime -> memory -> display / presence
 ```
 
-MVP implementation can be one OpenAI Responses API call with structured JSON, plus modular prompt sections.
+Required checks:
 
-If there is time, split the flow into Agents SDK handoffs. Do not make that a dependency for the judged demo.
+- study remains a strong demo path
+- at least one non-study use case also works
+- the runtime keeps character voice and boundaries stable
+- `answer || reply` rendering is preserved
+- fallback state is visible when used
+- typed input still works if voice fails
+- browser speech fallback still works if API voice fails
+- the current static HTML demo remains usable until cutover
 
-## 5. MML Layer
+## 10. Demo Inputs
 
-For this repo, define MML as the Mode-Memory-Loop unless the team has a different external MML spec.
-
-```text
-Message -> Mode detection -> Micro-task plan -> Live timer/check-in -> Memory update
-```
-
-Show this in the UI as an orchestration trace:
-
-```text
-Input received
-State detected: Low motivation
-Mode selected: Encourage Mode
-Action generated: 10-minute sprint
-Memory update queued: user starts better with short tasks
-```
-
-## 6. Backend File Structure
-
-Implemented backend structure:
-
-```text
-server/
-  index.js
-  config.js
-  env.js
-  data.js
-  schemas.js
-  openai/
-    client.js
-  runtime/
-    orchestrator.js
-  fallback/
-    mockEngine.js
-  store/
-    sessionStore.js
-```
-
-The orchestration layer is currently modular inside `server/engines/runtime/orchestrator.js`, with the subagent-style skills represented by deterministic sections in the prompt/fallback flow rather than separate files.
-
-## 7. API Endpoints
-
-Minimum:
-
-```text
-GET  /api/health
-POST /api/session
-POST /api/chat
-GET  /api/session/:id/memory
-POST /api/session/:id/reset
-```
-
-Optional:
-
-```text
-POST /api/realtime/session
-```
-
-Only add Realtime if voice becomes a core demo feature. Browser speech is enough for MVP.
-
-## 8. Runtime Request Contract
-
-```ts
-type RuntimeRequest = {
-  session_id?: string;
-  scenario: "study" | "work" | "pet" | "daily";
-  message: string;
-  channel: "text" | "voice" | "stage";
-  tone: "soft_supportive" | "short_direct" | "cute_playful" | "coach_like" | "friend_like";
-  use_case: "study" | "work" | "light_support" | "pet_companionship" | "routine";
-  companion: CompanionProfile;
-  memory?: MemorySnapshot;
-};
-```
-
-## 9. Runtime Response Contract
-
-```ts
-type RuntimeResponse = {
-  session_id: string;
-  reply: string;
-  detected_state: "avoidance" | "overwhelmed" | "low_motivation" | "ready_to_focus" | "stuck" | "recovery_break_needed" | "neutral";
-  companion_state: "idle" | "happy" | "thinking" | "encouraging" | "focused" | "resting" | "concerned";
-  mode: "Encourage Mode" | "Study Sprint Mode" | "Check-in Mode" | "Routine Mode";
-  goal_understanding: string;
-  micro_task_plan: Array<{
-    label: string;
-    duration_minutes: number;
-    done: boolean;
-  }>;
-  start_button_label: string;
-  check_in_message: string;
-  check_in_options: ["Done", "Partly done", "I got stuck"];
-  memory_update: string;
-  memory: MemorySnapshot;
-  trace: Array<{
-    step: string;
-    status: "complete" | "fallback";
-    summary: string;
-  }>;
-  fallback_used: boolean;
-};
-```
-
-## 10. Memory Snapshot
-
-```ts
-type MemorySnapshot = {
-  user_name?: string;
-  current_companion: string;
-  companion_settings: CompanionProfile;
-  preferred_mode: string;
-  preferred_task_length: string;
-  recent_goals: string[];
-  completed_micro_tasks: string[];
-  check_in_history: Array<{
-    date: string;
-    goal: string;
-    result: "done" | "partly_done" | "stuck";
-  }>;
-  latest_memory_update: string;
-  updated_at: string;
-};
-```
-
-## 11. Fastest Path In Current Repo
-
-Because the repo is currently a single HTML file, do not start with a full rewrite.
-
-Phase 1:
-
-- keep `frontend/static/nextstep-companion.html` served at `/nextstep-companion.html`
-- add new fields to React state
-- extend `ImageUpload` into builder page
-- extend `TaskSupportPanel` with goal understanding, timer, check-in buttons, and trace
-- extend `MemoryResult` with memory cards
-- replace only `generateChatResultAsync` when backend is ready
-
-Phase 2:
-
-- add `server/`
-- keep mock logic isolated in `server/engines/mock/mockEngine.js`
-- make `generateChatResultAsync` call `/api/chat`
-
-Phase 3:
-
-- optional migration from standalone HTML to Vite/React
-- only do this after the demo flow works
-
-## 12. Prompt System
-
-Prompt goals:
-
-- stay brief
-- do not over-therapize
-- convert vague goals into concrete next actions
-- prefer 5-10 minute starts
-- return schema-valid JSON
-- avoid medical or mental-health diagnosis
-- preserve selected tone
-
-Runtime instruction:
-
-```text
-You are the runtime engine for an adaptive study companion.
-Your job is to help the user start action, not maximize conversation.
-Return short supportive copy and 2-4 concrete micro-tasks.
-Use the selected tone.
-Update memory with one useful preference or fact.
-```
-
-## 13. Fallback Strategy
-
-The demo must work even if:
-
-- OpenAI key is missing
-- OpenAI call times out
-- schema parse fails
-- Live2D asset is missing
-- microphone permission is denied
-- TTS is unsupported
-- upload fails
-- CDN is unavailable during demo
-
-Fallback rules:
-
-- API failure -> mock engine
-- Live2D failure -> SVG/simple avatar
-- mic failure -> manual input
-- TTS failure -> subtitle/chat bubble
-- upload failure -> default image
-- network/CDN risk -> pre-open the app before judging
-
-## 14. Build Exit Criteria
-
-The build is ready for rehearsal when this path works without manual explanation:
-
-```text
-home -> scan/setup -> runtime -> timer/check-in -> memory -> display mode
-```
-
-Minimum acceptance checks:
-
-- selected tone and use case appear in the generated companion setup
-- runtime detects a stuck or low-motivation study input
-- Encourage Mode produces a visible micro-task plan
-- Start Sprint begins a countdown or clear active sprint state
-- check-in choices update the session state
-- memory page shows a useful remembered preference or recent goal
-- display mode shows the companion, current mode, reply, and next step
-- mock fallback still works when OpenAI is unavailable
-
-Verification:
-
-- Backend/API runtime scope is verified by Mart with `npm run test:mart`.
-
-## 15. Demo Script
-
-Opening:
-
-> Most AI companions keep the user talking. Yorimi helps the user start. It detects when someone is stuck, switches into the right mode, creates a tiny action plan, checks in, and remembers what helped.
-
-Step 1:
-
-> I create a companion from a familiar desk object, so the system has a personal anchor.
-
-Step 2:
-
-> I choose the tone and main use case. For this demo, I want short, supportive study help.
-
-Step 3:
-
-Type:
+Study:
 
 ```text
 I have a finance quiz but I am tired and stuck.
 ```
 
-Say:
-
-> The system detects low motivation, enters Encourage Mode, and avoids giving a huge study plan. It creates a small sprint.
-
-Step 4:
-
-Click:
+Creator / character:
 
 ```text
-Start 10-min Sprint
+I want this character to greet fans gently and remember their preferred nickname.
 ```
 
-Say:
-
-> This is the difference from a normal companion. It moves the user into action.
-
-Step 5:
-
-Open memory.
-
-Say:
-
-> The memory layer learns that this user starts better with short study sprints. Next time the companion can adapt immediately.
-
-Closing:
-
-> The current demo is study-first, but the same orchestration layer supports work sessions, routines, pet companionship, and desktop display mode.
-
-## 16. Known-Good Demo Inputs
+Daily routine:
 
 ```text
-I have a finance quiz but I am tired and stuck.
+Help me start a 10-minute reset before I work again.
 ```
 
-```text
-I want to start my essay but it feels too big.
-```
+## 11. Implementation Scope Split
 
-```text
-I need to clean my room and I feel overwhelmed today.
-```
+Core platform scope:
 
-```text
-I am ready to focus now.
-```
+- architecture and migration sequencing
+- backend contracts and runtime behavior
+- character profile and memory boundaries
+- deployment, storage, and test hardening
+- AIRI adoption boundaries and frontend cutover plan
 
-Avoid:
+Voice and interaction scope:
 
-- crisis or medical wording
-- long emotional confessions
-- requests unrelated to study/work/routine
-- anything requiring real external tools
+- mic flow and voice controls
+- playback and interruption behavior
+- avatar state transitions
+- stage and presence polish
+- interaction validation against the runtime contract
+
+Joint execution rules:
+
+- keep the backend contract stable during frontend migration
+- keep fallback behavior intact during voice and UI work
+- keep the current static HTML runtime available until the new frontend reaches parity
+
+See `docs/planning/DUTY_SPLIT.md` for the detailed work split.

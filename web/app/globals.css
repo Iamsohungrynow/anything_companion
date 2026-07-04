@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Yorimi design tokens — warm-pastel, cute, rounded (light theme)
+   Locked palette: milk-peach ground, coral accent (only accent),
+   rose as a same-family cute pop, cocoa-plum text (never pure black).
+   ============================================================ */
+@theme {
+  /* yorimi brand: warm cream paper, ink linework, terracotta-coral accent */
+  --color-cream: #f6f1e6;
+  --color-peach-50: #f8f4ec;
+  --color-peach-100: #f1e7d6;
+  --color-peach-200: #e6d7bf;
+  --color-peach-300: #d8c3a2;
+
+  --color-coral: #e0714a;
+  --color-coral-soft: #eb9a70;
+  --color-coral-deep: #c9572f;
+
+  --color-rose: #eea79c;
+  --color-rose-soft: #f6cabf;
+
+  --color-lilac: #cdbef2;
+
+  --color-plum: #2b2420;
+  --color-plum-soft: #6c6157;
+  --color-plum-faint: #a99d8e;
+
+  --radius-blob: 44px;
+  --radius-card: 28px;
+  --radius-soft: 18px;
+
+  --font-display: var(--font-fredoka), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", system-ui,
+    sans-serif;
+  --font-sans: var(--font-nunito), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Source Han Sans SC", "Noto Sans CJK SC", system-ui,
+    sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+  }
+  body {
+    background: var(--color-cream);
+    color: var(--color-plum);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    letter-spacing: 0.005em;
+  }
+  ::selection {
+    background: var(--color-rose-soft);
+    color: var(--color-plum);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-coral);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ============================================================
+   Always-on ambient loops (cheap, GPU-friendly transforms only).
+   Reveal / scroll motion is handled by Motion in <Reveal/>.
+   ============================================================ */
+@keyframes yo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes yo-blink {
+  0%,
+  7%,
+  100% {
+    transform: scaleY(1);
+  }
+  3.2% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes yo-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes yo-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.16;
+  }
+  50% {
+    transform: scaleX(0.86);
+    opacity: 0.1;
+  }
+}
+@keyframes yo-eq {
+  0%,
+  100% {
+    height: 26%;
+  }
+  50% {
+    height: 100%;
+  }
+}
+@keyframes yo-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes yo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.78);
+  }
+}
+@keyframes yo-drift {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-70px) rotate(18deg);
+    opacity: 0;
+  }
+}
+
+.yo-float {
+  animation: yo-float 6s ease-in-out infinite;
+  transform-origin: center;
+}
+.yo-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yo-blink 5.6s infinite;
+}
+.yo-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yo-orbit 9s linear infinite;
+}
+.yo-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yo-shadow 6s ease-in-out infinite;
+}
+.yo-eq-bar {
+  animation: yo-eq 1.3s ease-in-out infinite;
+}
+.yo-marquee {
+  animation: yo-marquee 26s linear infinite;
+}
+.yo-pulse {
+  animation: yo-pulse 3s ease-in-out infinite;
+}
+.yo-drift {
+  animation: yo-drift 4.5s ease-in-out infinite;
+}
+
+/* Ported companion-demo entrance animations (from the legacy demo). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
