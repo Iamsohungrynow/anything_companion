@@ -1,9 +1,5 @@
 # Yorimi Demo Run Instructions
 
-<p align="center">
-  <img src="../../../../assets/brand/yorimi-logo.png" alt="Yorimi Logo" width="220" />
-</p>
-
 Project: Yorimi  
 Stage: Preliminary Round Wave 1 / Wave 2 preparation  
 Live demo: https://compagnon-eveil.vercel.app/

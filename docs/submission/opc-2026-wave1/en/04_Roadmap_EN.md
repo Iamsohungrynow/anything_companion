@@ -1,9 +1,5 @@
 # Yorimi Roadmap: Wave 2 / Wave 3 / Wave 4
 
-<p align="center">
-  <img src="../../../../assets/brand/yorimi-logo.png" alt="Yorimi Logo" width="220" />
-</p>
-
 Current stage: Wave 1 Idea / Specs  
 Track: Digital Culture, AI+Entertainment / AI+Education
 
@@ -130,15 +126,7 @@ Pitch structure:
 - Creator Studio: creator onboarding, analytics, revenue sharing, custom partnerships.
 - 3D desktop device: device sales, creator collaborations, device skins, event demos, limited presales.
 
-## 7. Team and Roles
-
-**Siyu Wang（王斯昱）** leads product direction, AI character experience, market positioning, and business strategy.
-
-**Martina Lee** leads AI engineering/research direction and technical execution across Physics x AI and companion runtime development.
-
-Together, they brought Yorimi's predecessor Compagnon Éveil into the UCWS Singapore Hackathon 2026 Top 20 and are now upgrading the project into a clearer AI character presence product.
-
-## 8. Risks and Responses
+## 7. Risks and Responses
 
 | Risk | Response |
 | --- | --- |
@@ -148,6 +136,6 @@ Together, they brought Yorimi's predecessor Compagnon Éveil into the UCWS Singa
 | Emotional dependency | Position as daily companionship and study support, not therapy or relationship replacement |
 | Hardware overreach | Use hardware for demo and validation before any manufacturing plan |
 
-## 9. Vision
+## 8. Vision
 
 Yorimi aims to become an AI character presence ecosystem connecting users, virtual characters, creators, and desktop devices. Users get companions with memory and presence. Creators turn characters into interactive services. Virtual characters move from one-time content into long-term digital partners.

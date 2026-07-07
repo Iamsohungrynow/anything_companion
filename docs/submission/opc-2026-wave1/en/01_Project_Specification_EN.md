@@ -10,10 +10,6 @@
 
 Yorimi was previously named **Compagnon Éveil**, so the deployed demo still uses the `compagnon-eveil` domain. The current Wave 1 submission repositions the project as Yorimi: an AI character presence product for digital culture.
 
-<p align="center">
-  <img src="../../../../assets/brand/yorimi-logo.png" alt="Yorimi Logo" width="220" />
-</p>
-
 ## 1. One-Sentence Definition
 
 Yorimi turns virtual characters from content people watch into AI presences that remember, respond, accompany, and appear on the user's desk.

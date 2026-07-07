@@ -1,9 +1,5 @@
 # Yorimi Technical and Product Architecture
 
-<p align="center">
-  <img src="../../../../assets/brand/yorimi-logo.png" alt="Yorimi Logo" width="220" />
-</p>
-
 Yorimi is not only a chatbot. It is a system for persona setup, ongoing interaction, user memory, action companionship, desktop display, and planned creator-side character operation.
 
 ## 1. Architecture Overview
