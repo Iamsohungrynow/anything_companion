@@ -4,6 +4,20 @@ Compagnon Eveil is an AI companion demo for study, daily routines, emotional che
 
 The demo focuses on natural companion dialogue, lightweight memory, state feedback, micro-action guidance, voice fallback, and a path toward desktop presence.
 
+## Preview
+
+![Compagnon Eveil project preview](./assets/compagnon-eveil-preview.png)
+
+## Demo And Recognition
+
+**3D desktop presence demo**
+
+![Compagnon Eveil hardware demo](./assets/hardware-demo.gif)
+
+**UCWS Singapore Hackathon 2026 Top 20 Finalist certificate**
+
+![UCWS Singapore Hackathon 2026 Top 20 Finalist certificate for Compagnon Eveil](./assets/awards/ucws-top20-certificate.jpg)
+
 ## Live Demo
 
 Current deployment:
